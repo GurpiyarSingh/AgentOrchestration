@@ -1,0 +1,170 @@
+/* ==========================================================================
+   Codeloom: agentic visual layer (loaded after styles.css)
+   ========================================================================== */
+
+body {
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(16, 185, 129, 0.16), transparent 60%),
+    radial-gradient(900px 500px at 10% 110%, rgba(45, 212, 191, 0.10), transparent 60%),
+    radial-gradient(700px 400px at 50% 50%, rgba(163, 230, 53, 0.05), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* ---------- Sidebar ---------- */
+.sidebar {
+  background: linear-gradient(180deg, rgba(10, 19, 15, 0.92), rgba(5, 10, 8, 0.92));
+  backdrop-filter: blur(14px);
+  position: relative;
+  z-index: 2;
+}
+.sidebar::after {
+  content: "";
+  position: absolute; top: 0; right: -1px; width: 1px; height: 100%;
+  background: linear-gradient(180deg, transparent, rgba(52, 211, 153, .45), rgba(45, 212, 191, .25), transparent);
+}
+.brand-mark-wrap { filter: drop-shadow(0 6px 16px rgba(16, 185, 129, .45)); display: grid; }
+.brand-name {
+  font-size: 16px; font-weight: 700; letter-spacing: -0.02em;
+  background: linear-gradient(90deg, #ffffff, #bbf7d0 55%, #5eead4);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.nav-item.active {
+  background: linear-gradient(90deg, rgba(52, 211, 153, .20), rgba(52, 211, 153, .04));
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* ---------- Main stage with ambient agent network ---------- */
+.main { position: relative; overflow: hidden; }
+.net-bg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; opacity: .9; }
+.topbar, .content { position: relative; z-index: 1; }
+.topbar { background: rgba(5, 10, 8, 0.55); backdrop-filter: blur(14px); }
+
+/* ---------- Glass surfaces ---------- */
+.card {
+  background: linear-gradient(180deg, rgba(14, 24, 19, 0.78), rgba(9, 17, 13, 0.78));
+  backdrop-filter: blur(12px);
+  border-color: rgba(52, 92, 72, 0.55);
+}
+.usage-item { background: rgba(11, 19, 15, 0.7); backdrop-filter: blur(8px); }
+.step, .flow-item { background: rgba(8, 15, 11, 0.72); backdrop-filter: blur(8px); }
+.modal { background: rgba(12, 21, 16, 0.96); }
+
+.grad-text {
+  background: linear-gradient(92deg, #ffffff 0%, #bbf7d0 40%, #a3e635 65%, #2dd4bf 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.eyebrow { font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; color: #86efac; }
+
+/* ---------- Hero ---------- */
+.hero-agentic {
+  position: relative; overflow: hidden; border-radius: 18px;
+  border: 1px solid rgba(16, 185, 129, .28);
+  background:
+    radial-gradient(600px 300px at 75% 40%, rgba(16, 185, 129, .20), transparent 70%),
+    radial-gradient(400px 260px at 15% 90%, rgba(45, 212, 191, .10), transparent 70%),
+    linear-gradient(180deg, rgba(12, 22, 17, .85), rgba(7, 13, 10, .85));
+  backdrop-filter: blur(12px);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .04);
+}
+.hero-agentic::before {
+  content: "";
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(52, 211, 153, .06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(52, 211, 153, .06) 1px, transparent 1px);
+  background-size: 32px 32px;
+  -webkit-mask-image: radial-gradient(ellipse at 60% 40%, black 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse at 60% 40%, black 30%, transparent 75%);
+}
+.hero-grid { position: relative; display: grid; grid-template-columns: minmax(300px, .9fr) 1.1fr; gap: 12px; align-items: center; padding: 30px 30px 18px; }
+.hero-title { font-size: 34px; line-height: 1.12; font-weight: 750; letter-spacing: -0.03em; }
+.hero-lead { color: var(--text-2); font-size: 15px; max-width: 520px; }
+.hero-steps { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 0 30px 28px; }
+.hero-step { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: 12px; background: rgba(8, 14, 11, .6); border: 1px solid rgba(52, 92, 72, .5); }
+.hero-step .n {
+  flex: 0 0 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+  font-weight: 700; font-size: 12px; color: #03140b; background: linear-gradient(135deg, #4ade80, #2dd4bf);
+}
+
+/* ---------- Constellation ---------- */
+.constellation { width: 100%; height: auto; display: block; overflow: visible; }
+.constellation .flow { stroke-dasharray: 3 14; animation: flow 1.6s linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -34; } }
+.constellation .breathe { animation: breathe 3.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes breathe { 0%, 100% { opacity: .75; transform: scale(1); } 50% { opacity: 1; transform: scale(1.08); } }
+.constellation .spin-slow { animation: spin 60s linear infinite; }
+
+/* ---------- Agent avatar ---------- */
+.avatar { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 11px; display: grid; place-items: center; border: 1px solid; }
+.avatar.sm { width: 28px; height: 28px; flex-basis: 28px; border-radius: 9px; }
+.avatar.lg { width: 44px; height: 44px; flex-basis: 44px; border-radius: 14px; }
+
+/* ---------- Pipeline: agent cards, connector, live glow ---------- */
+.pipeline { position: relative; }
+.pipeline::before {
+  content: "";
+  position: absolute; left: 4%; right: 4%; top: 30px; height: 2px; z-index: 0;
+  background: linear-gradient(90deg, #a3e63555, #2dd4bf55, #facc1555, #34d39955, #38bdf855, #f0abfc55);
+}
+.pipeline.live::before {
+  background: linear-gradient(90deg, #a3e635, #2dd4bf, #facc15, #34d399, #38bdf8, #f0abfc, #a3e635);
+  background-size: 200% 100%;
+  animation: slide 3s linear infinite;
+  opacity: .55;
+}
+@keyframes slide { to { background-position: -200% 0; } }
+.step { position: relative; z-index: 1; overflow: hidden; }
+.step::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--c, var(--border)); opacity: .45; }
+.step.done::after, .step.running::after { opacity: 1; }
+@property --ang { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+.step.running {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(rgba(8, 15, 11, .94), rgba(8, 15, 11, .94)) padding-box,
+    conic-gradient(from var(--ang), var(--c), transparent 30%, transparent 70%, var(--c)) border-box;
+  animation: rotate-border 2.4s linear infinite;
+  box-shadow: 0 0 28px -6px var(--c);
+}
+@keyframes rotate-border { to { --ang: 360deg; } }
+.step .agent-tag { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--c); }
+
+.thinking { display: inline-flex; gap: 3px; align-items: center; }
+.thinking i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; animation: think 1.2s infinite ease-in-out; }
+.thinking i:nth-child(2) { animation-delay: .15s; }
+.thinking i:nth-child(3) { animation-delay: .3s; }
+@keyframes think { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+
+/* ---------- Build header accent ---------- */
+.build-head { position: relative; overflow: hidden; }
+.build-head::before {
+  content: "";
+  position: absolute; inset: -1px; pointer-events: none;
+  background: radial-gradient(500px 160px at 90% 0%, rgba(16, 185, 129, .16), transparent 70%);
+}
+.build-head.live::before {
+  background: radial-gradient(500px 160px at 90% 0%, rgba(16, 185, 129, .30), transparent 70%);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+/* ---------- Agent cards (Agents page) ---------- */
+.team-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 14px; }
+.agent-card {
+  display: grid; gap: 8px; padding: 13px; border-radius: 14px; position: relative; overflow: hidden; cursor: pointer;
+  border: 1px solid rgba(52, 92, 72, .55); background: rgba(8, 15, 11, .7);
+  transition: border-color .15s, transform .15s, box-shadow .15s;
+}
+.agent-card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; background: var(--c); opacity: .8; }
+.agent-card:hover { transform: translateY(-1px); border-color: var(--c); box-shadow: 0 10px 30px -12px var(--c); }
+.agent-card.sel { border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 14px 34px -14px var(--c); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+@media (max-width: 1200px) {
+  .hero-grid { grid-template-columns: 1fr; }
+  .hero-steps { grid-template-columns: 1fr; }
+}
+
+/* Keep grid-based blocks top-aligned when siblings are taller */
+.field, .flow-item, .step, .stat, .agent-card { align-content: start; }

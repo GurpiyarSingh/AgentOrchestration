@@ -1,0 +1,12 @@
+# Model prices in USD per 1M tokens, used for run cost totals.
+# Prices change often and are not shipped with the app: enter them in the UI (Settings → Pricing)
+# or copy them from your provider's pricing page. Keys are model names without the provider prefix.
+#
+# Example:
+# models:
+#   gpt-5.4-mini:
+#     input_per_1m: 0.0
+#     output_per_1m: 0.0
+#     cached_input_per_1m: 0.0
+
+models: {}

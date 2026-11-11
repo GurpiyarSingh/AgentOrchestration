@@ -1,0 +1,8 @@
+Agent Orchestration POC - sample notes
+
+Milestones:
+- M0: skeleton (done)
+- M1: agents, tools, tracing, REST API with Swagger
+- M2: MCP, skills, repositories, languages
+
+Budget for the demo: 3 agents x 12 runs x 4 tool calls each.

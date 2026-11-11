@@ -218,3 +218,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# AgentOrchestration runtime data
+data/
+workspaces/
+
+# Web UI
+web/node_modules/
+web/dist/

@@ -1,0 +1,13 @@
+name: code_runner
+description: Runs the project's unit tests in the build sandbox and reports pass/fail per test (no AI).
+kind: step
+role: runner
+system_prompt: |
+  Deterministic step. Runs the language's test command (pytest for Python, node --test for JavaScript and
+  TypeScript) inside the build worktree with a timeout and without secrets, then parses the JUnit report.
+model: ''
+reasoning_effort: null
+tools: []
+skills: []
+max_model_calls: 1
+max_tool_calls: 1
