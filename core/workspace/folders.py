@@ -55,7 +55,10 @@ def pick_folder_native(title: str = "Choose a folder", initial: str | None = Non
     try:
         proc = subprocess.run(
             [sys.executable, "-c", _PICKER, title, initial or ""],
-            capture_output=True, text=True, encoding="utf-8", timeout=PICKER_TIMEOUT_S,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=PICKER_TIMEOUT_S,
         )
     except subprocess.TimeoutExpired as e:
         raise FolderPickerError("The folder dialog was left open too long.") from e

@@ -18,6 +18,7 @@ export default function ToolsPage() {
   const shown = (tools ?? []).filter((t) => !query || (t.name + t.description).toLowerCase().includes(query.toLowerCase()));
   const groups = [
     { id: "python", title: "Built-in tools", sub: "Available to any agent; try them here" },
+    { id: "mcp", title: "MCP tools", sub: "From connected MCP servers (manage them on the MCP servers page)" },
     { id: "workspace", title: "Workspace tools", sub: "Sandboxed file tools given to the Test Writer and Code Generator during a build" },
   ];
   return (
@@ -27,7 +28,7 @@ export default function ToolsPage() {
           <Search size={15} className="muted" style={{ position: "absolute", left: 11 }} />
           <input className="input" style={{ paddingLeft: 34 }} placeholder="Search tools" value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
-        <span className="small muted">{tools?.length ?? 0} tools · MCP servers arrive next (Settings → Integrations)</span>
+        <span className="small muted">{tools?.length ?? 0} tools · MCP tools come from connected servers</span>
       </div>
       {groups.map((g) => {
         const items = shown.filter((t) => t.source === g.id);
@@ -76,7 +77,7 @@ function ToolRow({ tool, open, onToggle, onChanged }: { tool: ToolInfo; open: bo
             </div>
           )}
           {tool.invokable ? <TryIt tool={tool} /> : (
-            <div className="callout info small"><Lock size={15} /><div>Bound to a build's isolated workspace at run time. Paths are checked so agents can never read or write outside it, or touch <span className="mono">.git</span> or <span className="mono">.env</span>.</div></div>
+            <div className="callout info small"><Lock size={15} /><div>Bound to the project folder at run time. Paths are checked so agents can never read or write outside it, or touch <span className="mono">.git</span> or <span className="mono">.env</span>.</div></div>
           )}
         </div>
       )}

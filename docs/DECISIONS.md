@@ -65,7 +65,7 @@ Template:
 
 ## ADR-008: Generated code is written only to a registered repo, on a per‑run branch + worktree
 - Date: 2026-11-11
-- Status: Accepted
+- Status: Superseded by ADR-023
 - Context: Generated code must go to a repo the user chooses, without risking their files.
 - Decision: Repos are registered in the UI (local / new / clone). Each run uses branch `agents/<run-id>-<slug>` in its own git worktree. Agents use sandboxed repo tools only. Merge, push, and PR happen after human approval.
 - Consequences: Safe parallel runs and easy discard. Needs Windows long‑path handling and worktree cleanup.
@@ -88,7 +88,7 @@ Template:
 
 ## ADR-011: Local‑only git: no push, no pull requests
 - Date: 2026-11-11
-- Status: Accepted
+- Status: Superseded by ADR-023 (the app now runs no git at all)
 - Context: Decide where finished dev‑team runs go.
 - Decision: Finish actions are local only: **merge** into the base branch, **keep** the agent branch (worktree removed), or **discard**. The app never runs `git push` or opens PRs. Cloning from a URL is allowed (read‑only).
 - Consequences: No hosting tokens with write scope, a smaller attack surface, and no GitHub/GitLab/Azure DevOps adapters. You push yourself if you want to. Adding PRs later would be a new ADR.
@@ -151,7 +151,7 @@ Template:
 
 ## ADR-020: The build pipeline: a six-agent team on per-build git worktrees
 - Date: 2026-11-11
-- Status: Accepted
+- Status: Accepted; the worktree / merge part is superseded by ADR-023
 - Context: The core use case is "enter a requirement, get working code". It was missing from the first UI.
 - Decision: A LangGraph `StateGraph`: Requirements Analyst → Architect → (Unit Test Writer ∥ Code Generator) → Code Runner → fix loop → Code Reviewer, then merge/keep/discard. Spec, Plan and Review are structured outputs. Coding stages use sandboxed workspace tools with per-stage permissions: the test writer never sees source and the coder never writes tests. The runner is deterministic: pytest for Python, `node --test` with type stripping for JS/TS, with JUnit parsing. The fixer must judge whether the test or the code is wrong, and the reviewer always runs.
 - Consequences: Verified live with gpt-5.4-mini in Python and TypeScript (all tests passing, approved, ~45-50k tokens per build). Generated code is limited to the standard library, because tests run without installing packages. Approval gates mid-build are future work.
@@ -162,6 +162,39 @@ Template:
 - Context: The user wants the key managed in the UI, not picked up from the environment.
 - Decision: `OPENAI_API_KEY` from the environment or `.env` is ignored. The key is entered in Settings, verified against OpenAI, stored in the OS credential store and removable there. Live tests read their own key explicitly.
 - Consequences: Behaviour is predictable (one source of truth). The UI shows an onboarding banner until a key is saved.
+
+## ADR-022: MCP connections and skills
+- Date: 2026-11-12
+- Status: Accepted
+- Context: M2 adds MCP servers and skills.
+- Decision:
+  - Each connected MCP server runs in a dedicated asyncio task that owns its session (the MCP client's task groups must enter and exit in the same task).
+  - Tools are registered as `<server>__<tool>`.
+  - Env/header **values** are secrets in the OS credential store (key `mcp/<server>/<kind>/<name>`); only their names are in SQLite.
+  - Tools annotated `destructiveHint` default to requires-approval.
+  - Enabled servers auto-connect at startup without blocking it.
+  - Skills are `skills/<name>/SKILL.md` folders. Agents see only names and descriptions, and load the full text through `skill__load`. One-shot structured stages get their skills inline.
+- Consequences:
+  - Any public MCP server can extend agents without code.
+  - Connection failures are shown per server and never block the app.
+  - Local MCP servers run third-party code on your machine, so the exact command is always shown and connecting is an explicit action.
+
+## ADR-023: No git: agents write directly into the project folder
+- Date: 2026-11-12
+- Status: Accepted (supersedes ADR-008 and ADR-011, and the worktree/merge part of ADR-020)
+- Context: The user does not want the app to commit anything to git. Builds that sat on unmerged `agents/<id>` branches also looked like "the agents wrote nothing", because the project folder only changed after Merge.
+- Decision:
+  - The app never runs git: no `init`, branch, worktree, commit or merge. The git wrapper and worktree module were deleted.
+  - A project is any folder. New projects are a plain folder with the language scaffold. Existing folders may or may not be git repos, and may have uncommitted changes.
+  - Agents write straight into the project folder, live, through the same sandboxed repo tools (path checks and protected paths unchanged).
+  - Before a build starts, the app records a hash of every file (and the text of small files), skipping `.git`, `node_modules`, virtualenvs and caches. Changed files and the diff are computed against that snapshot (`core/workspace/changes.py`). The final diff is saved with the build.
+  - Only one build may write to a project at a time.
+  - There is no Merge / Keep / Discard step. If the folder is a git repo, the changes show up as ordinary uncommitted files for the user to review and commit.
+- Consequences:
+  - What you see in the folder is what the agents wrote, as they write it.
+  - There is no automatic undo. A bad build leaves files behind that the user removes or reverts themselves (with their own git, if they use it).
+  - Tests run in the real project folder, so their side effects land there too (still with the timeout and scrubbed environment).
+  - Builds from before this change still show their saved results, but their `agents/<id>` branches were left in those repos untouched.
 
 ---
 

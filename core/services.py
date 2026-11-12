@@ -12,12 +12,14 @@ from sqlalchemy import Engine
 from core.config import Settings
 from core.llm.errors import friendly_error
 from core.llm.models import list_models
+from core.mcp.manager import MCPManager
 from core.pipeline.service import PipelineService
 from core.prefs import PrefStore, UserPrefs
 from core.pricing import ModelPrice, PriceTable
 from core.runtime.agent_def import AgentStore
 from core.runtime.run_service import ModelFactory, RunService
 from core.secrets import SecretStore
+from core.skills.loader import SkillStore
 from core.storage import create_db_engine
 from core.tools.builtin import builtin_tools
 from core.tools.registry import ToolRegistry
@@ -59,6 +61,8 @@ class Services:
     prefs: PrefStore
     projects: ProjectStore
     pipelines: PipelineService
+    skills: SkillStore
+    mcp: MCPManager
     env_openai_key: SecretStr | None = None
     env_default_model: str = ""
     env_cheap_model: str = ""
@@ -159,7 +163,8 @@ def build_services(
         agents.import_yaml_dir(agents_dir)  # adds missing defaults, keeps user edits
 
     prices = PriceTable.load(settings.config_dir / "prices.yaml")
-    runs = RunService(db, settings, tools, prices, model_factory=model_factory)
+    skills = SkillStore(settings.skills_dir)
+    runs = RunService(db, settings, tools, prices, model_factory=model_factory, skills=skills)
     projects = ProjectStore(db, settings)
     pipelines = PipelineService(
         db,
@@ -169,7 +174,9 @@ def build_services(
         prices,
         model_factory=runs.model_factory,
         redactor=lambda: runs.redactor,
+        skills=skills,
     )
+    secret_store = secrets or SecretStore()
     services = Services(
         settings=settings,
         db=db,
@@ -177,10 +184,12 @@ def build_services(
         agents=agents,
         prices=prices,
         runs=runs,
-        secrets=secrets or SecretStore(),
+        secrets=secret_store,
         prefs=PrefStore(db),
         projects=projects,
         pipelines=pipelines,
+        skills=skills,
+        mcp=MCPManager(db, tools, secret_store),
         env_openai_key=settings.openai_api_key,
         env_default_model=settings.default_model,
         env_cheap_model=settings.cheap_model,

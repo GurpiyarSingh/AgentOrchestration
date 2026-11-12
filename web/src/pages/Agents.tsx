@@ -27,6 +27,7 @@ export default function AgentsPage() {
   const { keyReady } = useApp();
   const { data: agents, reload } = useData(api.agents, []);
   const { data: tools } = useData(api.tools, []);
+  const { data: allSkills } = useData(api.skills, []);
   const { data: models } = useData(() => (keyReady ? api.models() : Promise.resolve([])), [keyReady]);
   const [selName, setSelName] = useState<string | null>(null);
   const [draft, setDraft] = useState<AgentDef | null>(null);
@@ -163,6 +164,20 @@ export default function AgentsPage() {
                       );
                     })}
                     {(draft.role === "tests" || draft.role === "coder") && <Badge tone="info">+ workspace file tools</Badge>}
+                  </div>
+                </Field>
+                <Field label="Skills" hint="The agent sees each skill's name and description and loads the full instructions when relevant.">
+                  <div className="row wrap">
+                    {(allSkills ?? []).map((sk) => {
+                      const on = draft.skills.includes(sk.name);
+                      return (
+                        <button key={sk.name} className={`chip click ${on ? "on" : ""}`} title={sk.description}
+                          onClick={() => set({ skills: on ? draft.skills.filter((x) => x !== sk.name) : [...draft.skills, sk.name] })}>
+                          <span className="mono">{sk.name}</span>
+                        </button>
+                      );
+                    })}
+                    {!allSkills?.length && <span className="small muted">No skills yet. Create one on the Skills page.</span>}
                   </div>
                 </Field>
               </div>

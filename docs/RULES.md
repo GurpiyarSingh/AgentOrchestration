@@ -67,12 +67,11 @@ The **MUST** rules are hard requirements. **SHOULD** rules are strong defaults; 
 
 ## 7. Coding‑agent and repository rules
 
-- **MUST:** Coding agents write **only** inside the run's worktree, through sandboxed repo tools. No general filesystem MCP for coding agents.
-- **MUST:** Never modify the user's checkout or base branch directly. All work happens on `agents/<run-id>-<slug>` in a worktree.
+- **MUST:** Coding agents write **only** inside the project folder, through sandboxed repo tools. No general filesystem MCP for coding agents.
+- **MUST:** The app never runs git: no init, branch, worktree, commit, merge or push (ADR‑023).
 - **MUST:** Protected paths (`.env*`, `.git/`, `.github/workflows/`, `*.pem`, `*.key`, plus repo‑specific ones) are never readable or writable by agents.
-- **MUST:** One commit per workflow step, with message prefix `[<agent>]`.
-- **MUST:** Local merge only after explicit human approval in the UI. The app never runs `git push` or opens PRs (ADR‑011).
-- **MUST:** The code runner runs with a timeout, in the worktree, with secrets removed from the environment.
+- **MUST:** Only one build writes to a project at a time.
+- **MUST:** The code runner runs with a timeout, in the project folder, with secrets removed from the environment.
 - **MUST:** The test writer never receives source code written in the same run (only spec + plan).
 
 ## 8. Data, config, and secrets

@@ -67,6 +67,16 @@ class ToolInvocation(BaseModel):
     duration_ms: int
 
 
+def _as_text(out: Any) -> str:
+    """Tool output → display text (MCP tools return lists of content blocks)."""
+    if isinstance(out, str):
+        return out
+    if isinstance(out, list) and out and all(isinstance(b, dict) and "type" in b for b in out):
+        parts = [str(b.get("text", "")) if b.get("type") == "text" else f"[{b.get('type')} content]" for b in out]
+        return "\n".join(parts)
+    return json.dumps(out, default=str)
+
+
 def truncate(text: str, max_chars: int = DEFAULT_MAX_OUTPUT_CHARS) -> str:
     """Cut `text` to `max_chars`, adding a visible marker."""
     if len(text) <= max_chars:
@@ -147,7 +157,7 @@ class ToolRegistry:
         try:
             out = await entry.tool.ainvoke(args)
             ok = True
-            text = out if isinstance(out, str) else json.dumps(out, default=str)
+            text = _as_text(out)
         except Exception as exc:
             ok, text = False, f"{type(exc).__name__}: {exc}"
         return ToolInvocation(

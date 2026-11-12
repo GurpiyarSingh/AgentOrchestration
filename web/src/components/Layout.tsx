@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation, Link } from "react-router-dom";
 import {
-  Activity, ArrowRight, Bot, BookOpen, Coins, Cpu, FolderGit2, Hammer, KeyRound, MessageSquare, Settings, Wrench, Zap,
+  Activity, ArrowRight, Bot, BookMarked, BookOpen, Plug, Moon, Sun, Coins, Cpu, FolderGit2, Hammer, KeyRound, MessageSquare, Settings, Wrench, Zap,
 } from "lucide-react";
 import { api } from "../api";
 import { fmt, useData } from "../lib";
@@ -8,6 +8,7 @@ import { useApp } from "./AppContext";
 import { Wordmark } from "./Brand";
 import { NetworkBackground } from "./NetworkBackground";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { useTheme } from "../theme";
 
 const NAV = [
   { section: "Build", items: [
@@ -16,6 +17,8 @@ const NAV = [
   ] },
   { section: "Agents", items: [
     { to: "/agents", label: "Agents", icon: Bot },
+    { to: "/skills", label: "Skills", icon: BookMarked },
+    { to: "/mcp", label: "MCP servers", icon: Plug },
     { to: "/tools", label: "Tools", icon: Wrench },
     { to: "/chat", label: "Chat", icon: MessageSquare },
   ] },
@@ -28,9 +31,11 @@ const NAV = [
 const TITLES: Record<string, [string, string]> = {
   "": ["Build", "Your AI software team turns requirements into tested, reviewed code"],
   builds: ["Build", "Turn a requirement into tested, reviewed code"],
-  projects: ["Projects", "Git repositories your agent team writes into"],
+  projects: ["Projects", "Folders your agent team writes code into"],
   agents: ["Agents", "The build team and your own agents"],
   tools: ["Tools", "Everything agents can call"],
+  mcp: ["MCP servers", "Connect external tools via the Model Context Protocol"],
+  skills: ["Skills", "Reusable know-how your agents load on demand"],
   chat: ["Chat", "Talk to an agent or a model directly"],
   runs: ["Runs & traces", "Every model call and tool call, with tokens and cost"],
   settings: ["Settings", "API key, models, pricing and integrations"],
@@ -55,6 +60,16 @@ function UsageStrip() {
       <div className="usage-item opt"><span className="k">Total</span><span className="v">{fmt.compact((t?.input_tokens ?? 0) + (t?.output_tokens ?? 0))}</span></div>
       <div className="usage-item"><Coins size={14} /><span className="k">Cost</span><span className="v">{fmt.cost(t?.cost_usd ?? 0)}</span></div>
     </div>
+  );
+}
+
+function ThemeToggle() {
+  const { theme, toggle } = useTheme();
+  const next = theme === "dark" ? "light" : "dark";
+  return (
+    <button className="btn icon-btn" onClick={toggle} title={`Switch to ${next} theme`} aria-label={`Switch to ${next} theme`}>
+      {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+    </button>
   );
 }
 
@@ -100,7 +115,10 @@ export function Layout() {
             <h1>{title}</h1>
             <span className="crumb">{sub}</span>
           </div>
-          <UsageStrip />
+          <div className="row" style={{ gap: 8 }}>
+            <UsageStrip />
+            <ThemeToggle />
+          </div>
         </header>
         <div className="content">
           {settings && !keyReady && seg !== "settings" && (

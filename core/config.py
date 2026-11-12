@@ -24,7 +24,8 @@ class Settings(BaseSettings):
     app_data_dir: Path = Path("data")
     workspaces_dir: Path = Path("workspaces")
     config_dir: Path = Path("config")
-    samples_dir: Path = Path("samples")  # the only folder builtin__read_text_file may read
+    samples_dir: Path = Path("samples")
+    skills_dir: Path = Path("skills")  # the only folder builtin__read_text_file may read
     max_tool_output_chars: int = Field(default=20_000, ge=1_000)
 
     # Git

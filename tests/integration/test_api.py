@@ -168,8 +168,7 @@ def test_projects_and_build_end_to_end(client: TestClient, models: dict[str, Scr
     assert "return a + b" in client.get(f"/api/builds/{run_id}/file", params={"path": "adder.py"}).text
     assert "+def add" in client.get(f"/api/builds/{run_id}/diff").text
     assert client.get("/api/builds").json()[0]["title"] == "Adder"
-    merged = client.post(f"/api/builds/{run_id}/finish", json={"action": "merge"}).json()
-    assert merged["final_action"] == "merged"
+    # written straight into the project folder; there is no merge step any more
     assert "adder.py" in [f["path"] for f in client.get(f"/api/projects/{project['id']}/files").json()]
-    assert client.post(f"/api/builds/{run_id}/finish", json={"action": "discard"}).status_code == 400
+    assert client.post(f"/api/builds/{run_id}/finish", json={"action": "merge"}).status_code in (404, 405)
     assert client.get("/api/builds/nope").status_code == 404

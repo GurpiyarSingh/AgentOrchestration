@@ -356,3 +356,20 @@ code, pre, .mono { font-family: var(--mono); font-size: 12.5px; }
   .split, .split-wide { grid-template-columns: 1fr; }
   .usage-item.opt { display: none; }
 }
+
+/* ---------- Theme tokens added for light/dark support (dark = default) ---------- */
+:root {
+  color-scheme: dark;
+  --agent-requirements: #a3e635;
+  --agent-architecture: #2dd4bf;
+  --agent-tests: #facc15;
+  --agent-code: #34d399;
+  --agent-run: #38bdf8;
+  --agent-review: #f0abfc;
+  --agent-general: #94a3b8;
+  --avatar-bg: #0b140f;
+  --cl-orbit: #23402f;
+  --cl-orbit-2: #1b3325;
+  --cl-core-bg: #0e1f16;
+  --cl-node-bg: #0b1610;
+}

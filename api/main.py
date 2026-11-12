@@ -5,6 +5,7 @@ Run:  uv run uvicorn api.main:app --host 127.0.0.1 --port 8000
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -14,10 +15,10 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.routes import router
+from api.routes_mcp_skills import router as mcp_skills_router
 from core.config import get_settings
 from core.pipeline.service import PipelineError
 from core.services import Services, build_services
-from core.workspace.git import GitError
 from core.workspace.projects import ProjectError
 
 WEB_DIST = Path(__file__).resolve().parents[1] / "web" / "dist"
@@ -26,6 +27,8 @@ TAGS = [
     {"name": "builds", "description": "The agent team: turn a requirement into tested, reviewed code."},
     {"name": "projects", "description": "Git projects that builds write code into."},
     {"name": "agents", "description": "Agent definitions (default team + your own)."},
+    {"name": "mcp", "description": "MCP servers: public registry, add/import, connect, tools."},
+    {"name": "skills", "description": "Skills (SKILL.md knowledge packs) agents can load."},
     {"name": "tools", "description": "Tool catalog, flags and direct invocation."},
     {"name": "runs", "description": "Chat, agent runs and traces."},
     {"name": "settings", "description": "API key, models, preferences, prices."},
@@ -46,8 +49,11 @@ def create_app(services: Services | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        app.state.services = services or build_services(get_settings())
+        app.state.services = svc = services or build_services(get_settings())
+        startup = asyncio.create_task(svc.mcp.connect_enabled())  # do not block startup on slow servers
         yield
+        startup.cancel()
+        await svc.mcp.shutdown()
 
     app = FastAPI(
         title="Codeloom API",
@@ -62,10 +68,11 @@ def create_app(services: Services | None = None) -> FastAPI:
         not_found = "not found" in str(exc).lower()
         return JSONResponse(status_code=404 if not_found else 400, content={"detail": str(exc)})
 
-    for exc_type in (ProjectError, PipelineError, GitError):
+    for exc_type in (ProjectError, PipelineError):
         app.add_exception_handler(exc_type, _bad_request)
 
     app.include_router(router)
+    app.include_router(mcp_skills_router)
 
     if (WEB_DIST / "assets").is_dir():
         app.mount("/assets", StaticFiles(directory=WEB_DIST / "assets"), name="assets")

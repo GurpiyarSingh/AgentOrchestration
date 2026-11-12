@@ -1,23 +1,43 @@
 import { useEffect, useState } from "react";
-import { Check, Coins, Cpu, Eye, EyeOff, GitBranch, KeyRound, Plug, Plus, RefreshCw, Save, ShieldCheck, Trash2 } from "lucide-react";
+import { Check, Coins, Cpu, Eye, EyeOff, KeyRound, Monitor, Moon, Palette, Plug, Plus, RefreshCw, Save, ShieldCheck, Sun, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { useData } from "../lib";
 import type { ModelPrice } from "../types";
 import { useApp } from "../components/AppContext";
+import { useTheme, type ThemePref } from "../theme";
 import { Badge, Card, Confirm, Field, Spinner, Toggle, useToast } from "../components/ui";
 
 export default function SettingsPage() {
   return (
     <div className="page" style={{ maxWidth: 1100 }}>
+      <AppearanceCard />
       <ApiKeyCard />
       <ModelsCard />
       <PricingCard />
-      <div className="grid-2">
-        <GitCard />
-        <IntegrationsCard />
-      </div>
+      <IntegrationsCard />
       <SystemCard />
     </div>
+  );
+}
+
+function AppearanceCard() {
+  const { pref, theme, setPref } = useTheme();
+  const options: { id: ThemePref; label: string; icon: typeof Sun }[] = [
+    { id: "light", label: "Light", icon: Sun }, { id: "dark", label: "Dark", icon: Moon }, { id: "system", label: "System", icon: Monitor },
+  ];
+  return (
+    <Card title="Appearance" icon={<Palette size={16} />} sub="Choose a theme. System follows your Windows light/dark setting.">
+      <div className="row between wrap">
+        <div className="segmented">
+          {options.map(({ id, label, icon: Icon }) => (
+            <button key={id} className={pref === id ? "on" : ""} onClick={() => setPref(id)} aria-pressed={pref === id}>
+              <Icon size={14} />{label}
+            </button>
+          ))}
+        </div>
+        <span className="small muted">Currently showing the <b style={{ color: "var(--text)" }}>{theme}</b> theme{pref === "system" ? " (from Windows)" : ""}.</span>
+      </div>
+    </Card>
   );
 }
 
@@ -177,26 +197,6 @@ function PricingCard() {
   );
 }
 
-function GitCard() {
-  const toast = useToast();
-  const { settings, reloadSettings } = useApp();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  useEffect(() => { setName(settings?.git_author_name ?? ""); setEmail(settings?.git_author_email ?? ""); },
-    [settings?.git_author_name, settings?.git_author_email]);
-  return (
-    <Card title="Git identity" icon={<GitBranch size={16} />} sub="Author of commits the agents make. Git stays local: nothing is ever pushed.">
-      <div className="col" style={{ gap: 12 }}>
-        <Field label="Author name"><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></Field>
-        <Field label="Author email"><input className="input" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
-        <button className="btn primary" style={{ alignSelf: "flex-start" }} onClick={async () => {
-          await api.savePrefs({ git_author_name: name.trim() || null, git_author_email: email.trim() || null }); toast("ok", "Saved"); reloadSettings();
-        }}><Save size={15} />Save</button>
-      </div>
-    </Card>
-  );
-}
-
 function IntegrationsCard() {
   const toast = useToast();
   const { settings, reloadSettings } = useApp();
@@ -216,7 +216,7 @@ function IntegrationsCard() {
         <div className="divider" />
         <div className="row between">
           <div><div className="strong small">MCP servers</div><div className="xs muted">Connect public MCP servers (filesystem, fetch, GitHub…) and give their tools to agents.</div></div>
-          <Badge tone="info">Next release</Badge>
+          <a className="btn sm primary" href="/mcp">Manage MCP servers</a>
         </div>
       </div>
     </Card>

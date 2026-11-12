@@ -22,6 +22,7 @@ class Health(BaseModel):
     agents: int
     tools: int
     projects: int
+    mcp_connected: int = 0
 
 
 class UsageReport(BaseModel):
@@ -163,10 +164,6 @@ class ProjectCreate(BaseModel):
     language: Literal["python", "javascript", "typescript"] = "python"
     mode: Literal["new", "existing"] = "new"
     path: str | None = Field(default=None, description="Folder (optional for new, required for existing)")
-
-
-class FinishRequest(BaseModel):
-    action: Literal["merge", "keep", "discard"]
 
 
 class PickFolderRequest(BaseModel):

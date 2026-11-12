@@ -5,7 +5,9 @@ import { useEffect, useRef } from "react";
  * light travelling along links. Low opacity, pointer-events disabled, pauses when the tab
  * is hidden, and renders a single static frame when the OS asks for reduced motion.
  */
-const COLORS = ["#34d399", "#10b981", "#a3e635", "#2dd4bf", "#4ade80", "#5eead4", "#86efac"];
+const COLORS_DARK = ["#34d399", "#10b981", "#a3e635", "#2dd4bf", "#4ade80", "#5eead4", "#86efac"];
+const COLORS_LIGHT = ["#059669", "#047857", "#65a30d", "#0d9488", "#16a34a", "#0f766e", "#15803d"];
+const isLight = () => document.documentElement.dataset.theme === "light";
 
 type Node = { x: number; y: number; vx: number; vy: number; r: number; c: string };
 type Pulse = { a: number; b: number; t: number; speed: number; c: string };
@@ -34,7 +36,7 @@ export function NetworkBackground({ density = 1 }: { density?: number }) {
       nodes = Array.from({ length: count }, (_, i) => ({
         x: Math.random() * w, y: Math.random() * h,
         vx: (Math.random() - 0.5) * 0.12, vy: (Math.random() - 0.5) * 0.12,
-        r: Math.random() < 0.12 ? 2.4 : 1.3, c: COLORS[i % COLORS.length],
+        r: Math.random() < 0.12 ? 2.4 : 1.3, c: String(i % COLORS_DARK.length),
       }));
     };
 
@@ -50,6 +52,9 @@ export function NetworkBackground({ density = 1 }: { density?: number }) {
 
     const frame = (now: number) => {
       const dt = Math.min(50, now - last); last = now;
+      const light = isLight();
+      const palette = light ? COLORS_LIGHT : COLORS_DARK;
+      const col = (c: string) => palette[Number(c)] ?? palette[0];
       ctx.clearRect(0, 0, w, h);
 
       for (const n of nodes) {
@@ -63,8 +68,8 @@ export function NetworkBackground({ density = 1 }: { density?: number }) {
           const a = nodes[i], b = nodes[j];
           const dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy;
           if (d2 > LINK * LINK) continue;
-          const alpha = (1 - Math.sqrt(d2) / LINK) * 0.16;
-          ctx.strokeStyle = `rgba(52, 211, 153,${alpha})`;
+          const alpha = (1 - Math.sqrt(d2) / LINK) * (light ? 0.22 : 0.16);
+          ctx.strokeStyle = light ? `rgba(4, 120, 87, ${alpha})` : `rgba(52, 211, 153, ${alpha})`;
           ctx.lineWidth = 1;
           ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
         }
@@ -82,14 +87,14 @@ export function NetworkBackground({ density = 1 }: { density?: number }) {
         if (p.t >= 1 || !a || !b) { pulses.splice(k, 1); continue; }
         const x = a.x + (b.x - a.x) * p.t, y = a.y + (b.y - a.y) * p.t;
         const g = ctx.createRadialGradient(x, y, 0, x, y, 10);
-        g.addColorStop(0, p.c); g.addColorStop(1, "rgba(0,0,0,0)");
+        g.addColorStop(0, col(p.c)); g.addColorStop(1, "rgba(0,0,0,0)");
         ctx.globalAlpha = 0.85; ctx.fillStyle = g;
         ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.fill();
         ctx.globalAlpha = 1;
       }
       // nodes
       for (const n of nodes) {
-        ctx.fillStyle = n.c;
+        ctx.fillStyle = col(n.c);
         ctx.globalAlpha = n.r > 2 ? 0.7 : 0.45;
         ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2); ctx.fill();
         if (n.r > 2) {

@@ -2,8 +2,8 @@
 
 Orchestrated as a LangGraph `StateGraph` (ADR-015). Every model call and tool call is
 traced under the pipeline's run; artifacts and a full snapshot are persisted so finished
-builds can be inspected after a restart. Code is written only into a per-build git
-worktree and merged only on request (ADR-008, ADR-011).
+builds can be inspected after a restart. Agents write directly into the project folder; the
+app never runs git (ADR-023). Changes are tracked against a snapshot taken before the build.
 """
 
 from __future__ import annotations
@@ -40,14 +40,14 @@ from core.pipeline.schemas import (
 from core.pricing import PriceTable
 from core.runtime.agent_def import AgentDef, AgentStore
 from core.runtime.agent_factory import build_agent
+from core.skills.loader import SkillStore, apply_skills, inline_skills
 from core.tools.registry import ToolEntry
 from core.tracing.callbacks import TraceCallbackHandler
 from core.tracing.redact import Redactor
 from core.tracing.tracer import Tracer
-from core.workspace import worktree as wt
-from core.workspace.git import GitError
+from core.workspace import changes as ch
 from core.workspace.languages import LanguageProfile, get_profile
-from core.workspace.projects import Project, ProjectStore
+from core.workspace.projects import Project, ProjectError, ProjectStore, read_text
 from core.workspace.repo_tools import make_repo_tools
 from core.workspace.runner import TestReport, run_tests
 
@@ -88,13 +88,15 @@ class _State(TypedDict, total=False):
 class PipelineHandle:
     """Live state of a build (thread-safe snapshot)."""
 
-    def __init__(self, snap: PipelineSnapshot, ws: wt.Workspace, profile: LanguageProfile, tracer: Tracer) -> None:
+    def __init__(
+        self, snap: PipelineSnapshot, root: Path, baseline: ch.FolderState, profile: LanguageProfile, tracer: Tracer
+    ) -> None:
         self.snap = snap
-        self.ws = ws
+        self.root = root
+        self.baseline = baseline
         self.profile = profile
         self.tracer = tracer
         self.task: asyncio.Task[None] | None = None
-        self.git_lock = asyncio.Lock()
         self.stage_meta: dict[str, tuple[tuple[int, int, int, int], str]] = {}  # stage id -> (usage before, span)
         self._lock = threading.Lock()
 
@@ -139,6 +141,7 @@ class PipelineService:
         prices: PriceTable,
         model_factory: ModelFactory,
         redactor: Callable[[], Redactor],
+        skills: SkillStore | None = None,
     ) -> None:
         self.db = db
         self.settings = settings
@@ -147,16 +150,13 @@ class PipelineService:
         self.prices = prices
         self.model_factory = model_factory
         self.redactor = redactor
+        self.skills = skills
         self._handles: dict[str, PipelineHandle] = {}
-
-    @property
-    def author(self) -> tuple[str, str]:
-        return (self.settings.git_author_name, self.settings.git_author_email)
 
     # ---- public API ---------------------------------------------------------------------
 
     async def start(self, req: PipelineRequest) -> PipelineHandle:
-        """Validate, create the build worktree and launch the pipeline task."""
+        """Validate, snapshot the project folder and launch the pipeline task."""
         project = self.projects.get(req.project_id)
         profile = get_profile(project.language)
         team = self._team()
@@ -164,13 +164,15 @@ class PipelineService:
             if agent.kind == "llm" and not (req.model or agent.model or self.settings.default_model):
                 raise PipelineError(f"No model for agent '{agent.name}' ({stage}). Choose a default model in Settings.")
 
+        root = Path(project.path)
+        if not await asyncio.to_thread(root.is_dir):
+            raise PipelineError(f"The project folder does not exist: {root}")
+        busy = [h for h in self._handles.values() if h.snap.project_id == project.id and h.task and not h.task.done()]
+        if busy:
+            raise PipelineError("Another build is already writing to this project; wait for it or cancel it.")
+        baseline = await asyncio.to_thread(ch.capture, root)
+
         run_id = new_id()
-        try:
-            ws = wt.start_worktree(
-                Path(project.path), self.settings.workspaces_dir / ".builds", run_id, project.base_branch
-            )
-        except GitError as exc:
-            raise PipelineError(f"Could not create the build workspace: {exc}") from exc
 
         with Session(self.db) as s:
             s.add(
@@ -181,8 +183,7 @@ class PipelineService:
                     input=req.requirement,
                     repo_id=project.id,
                     language_id=project.language,
-                    branch=ws.branch,
-                    worktree_path=ws.path,
+                    worktree_path=str(root),
                 )
             )
             s.commit()
@@ -194,13 +195,11 @@ class PipelineService:
             language=project.language,
             requirement=req.requirement,
             started_at=datetime.now(UTC),
-            branch=ws.branch,
-            base_branch=ws.base_branch,
-            worktree=ws.path,
-            repo_path=ws.repo,
+            worktree=str(root),
+            repo_path=str(root),
         )
         tracer = Tracer(self.db, run_id, self.prices, self.redactor())
-        handle = PipelineHandle(snap, ws, profile, tracer)
+        handle = PipelineHandle(snap, root, baseline, profile, tracer)
         self._handles[run_id] = handle
         self._persist(handle)
         graph = self._graph(handle, req, team, project)
@@ -258,57 +257,28 @@ class PipelineService:
             await h.task
         return True
 
-    async def finish(self, run_id: str, action: wt.FinishAction) -> PipelineSnapshot:
-        """Merge / keep / discard the build branch (only when the build is not running)."""
-        snap = self.get(run_id)
-        if snap.status == "running":
-            raise PipelineError("The build is still running; cancel it first.")
-        if snap.final_action is not None:
-            raise PipelineError(f"This build was already {snap.final_action}.")
-        ws = wt.Workspace(repo=snap.repo_path, path=snap.worktree, branch=snap.branch, base_branch=snap.base_branch)
-        title = snap.spec.title if snap.spec else "agent build"
-        message = f"Merge agent build: {title}\n\nRequirement: {snap.requirement[:500]}\nRun: {run_id}"
-        try:
-            text = await asyncio.to_thread(wt.finish, ws, action, self.author, message)
-        except GitError as exc:
-            raise PipelineError(str(exc)) from exc
-        final = {"merge": "merged", "keep": "kept", "discard": "discarded"}[action]
-        snap.final_action, snap.message = final, text  # type: ignore[assignment]
-        if (h := self._handles.get(run_id)) is not None:
-            h.set(final_action=final, message=text)
-            self._persist(h)
-        else:
-            self._save_snapshot(snap)
-        with Session(self.db) as s:
-            rec = s.get(RunRecord, run_id)
-            if rec is not None:
-                rec.final_action = final
-                s.add(rec)
-                s.commit()
-        return snap
-
     def file_at(self, run_id: str, rel: str) -> str:
-        """Content of a file produced by the build."""
+        """Current content of a file the build wrote (read from the project folder)."""
         snap = self.get(run_id)
-        if snap.final_action is None and Path(snap.worktree).is_dir():
-            from core.workspace.projects import read_text
-
-            return read_text(Path(snap.worktree), rel)
-        ref = snap.base_branch if snap.final_action == "merged" else snap.branch
         try:
-            return wt.show_file(Path(snap.repo_path), ref, rel)
-        except GitError as exc:
-            raise PipelineError(f"File not available: {rel}") from exc
+            return read_text(Path(snap.worktree or snap.repo_path), rel)
+        except ProjectError as exc:
+            raise PipelineError(str(exc)) from exc
 
     def diff(self, run_id: str) -> str:
-        """Unified diff of the build."""
-        snap = self.get(run_id)
-        if snap.final_action in ("merged", "discarded"):
-            return "(branch already merged or discarded)"
-        try:
-            return wt.diff(Path(snap.repo_path), snap.base_branch, snap.branch)
-        except GitError as exc:
-            raise PipelineError(str(exc)) from exc
+        """Unified diff of what the build changed (live while running, saved once finished)."""
+        if (h := self._handles.get(run_id)) is not None and h.task is not None and not h.task.done():
+            return ch.diff(h.baseline, h.root)
+        with Session(self.db) as s:
+            rec = s.exec(
+                select(RunArtifactRecord)
+                .where(RunArtifactRecord.run_id == run_id, RunArtifactRecord.name == "diff")
+                .order_by(col(RunArtifactRecord.ts).desc())
+            ).first()
+        if rec is not None:
+            return str(json.loads(rec.content_json))
+        self.get(run_id)  # raises if unknown
+        return "(no diff recorded for this build)"
 
     # ---- graph --------------------------------------------------------------------------
 
@@ -324,7 +294,7 @@ class PipelineService:
 
     def _graph(self, h: PipelineHandle, req: PipelineRequest, team: dict[str, AgentDef], project: Project) -> Any:
         profile = h.profile
-        root = Path(h.ws.path)
+        root = h.root
         conventions = f"Project language conventions:\n{profile.conventions}"
 
         def model_for(agent: AgentDef) -> tuple[str, BaseChatModel]:
@@ -336,7 +306,10 @@ class PipelineService:
             span, cfg = self._stage_begin(h, stage, agent, ref)
             try:
                 result = await model.with_structured_output(schema).ainvoke(
-                    [SystemMessage(agent.system_prompt + "\n\n" + conventions), HumanMessage(user)],
+                    [
+                        SystemMessage(agent.system_prompt + inline_skills(agent, self.skills) + "\n\n" + conventions),
+                        HumanMessage(user),
+                    ],
                     config=cfg,  # type: ignore[arg-type]
                 )
             except BaseException as exc:
@@ -347,10 +320,11 @@ class PipelineService:
         async def agentic(stage: StageKind, agent: AgentDef, user: str, tools: list[Any]) -> str:
             ref, model = model_for(agent)
             span, cfg = self._stage_begin(h, stage, agent, ref)
+            agent, skill_tools = apply_skills(agent, self.skills)
             graph = build_agent(
                 agent,
                 model,
-                [ToolEntry(t, "repo") for t in tools],
+                [ToolEntry(t, "repo") for t in tools] + [ToolEntry(t, "python") for t in skill_tools],
                 max_output_chars=self.settings.max_tool_output_chars,
             )
             try:
@@ -431,19 +405,10 @@ class PipelineService:
             return {"log": ["code"]}
 
         async def n_run(state: _State) -> _State:
-            attempt = state.get("fix_attempts", 0)
-            message = (
-                "[test_writer, code_generator] tests and implementation"
-                if attempt == 0 and not state.get("review_rounds")
-                else f"[code_generator] fix #{attempt}"
-            )
-            async with h.git_lock:
-                await asyncio.to_thread(wt.commit, h.ws, message, self.author)
             span, _cfg = self._stage_begin(h, "run", team["run"], None)
             report: TestReport = await asyncio.to_thread(run_tests, root, profile, self.settings.runner_timeout_seconds)
             h.update(lambda s: setattr(s, "test_report", report))
-            files = await asyncio.to_thread(wt.changed_files, Path(h.ws.repo), h.ws.base_branch, h.ws.branch)
-            h.update(lambda s: setattr(s, "files", files))
+            await self._refresh_files(h)
             verdict = "all passed" if report.ok else ("timed out" if report.timed_out else "failing")
             self._stage_end(
                 h,
@@ -476,7 +441,7 @@ class PipelineService:
         async def n_review(state: _State) -> _State:
             rounds = state.get("review_rounds", 0) + 1
             h.update(lambda s: setattr(s, "review_rounds", rounds))
-            diff = await asyncio.to_thread(wt.diff, Path(h.ws.repo), h.ws.base_branch, h.ws.branch, 60_000)
+            diff = await asyncio.to_thread(ch.diff, h.baseline, h.root, 60_000)
             report = h.snap.test_report
             tr = (
                 report.failure_summary()
@@ -548,9 +513,9 @@ class PipelineService:
             ok = bool(snap.test_report and snap.test_report.ok and snap.review and snap.review.approved)
             status = "done" if ok else "needs_attention"
             msg = (
-                "Tests pass and the reviewer approved. Merge it when you're happy."
+                f"Tests pass and the reviewer approved. The files are in {h.root}."
                 if ok
-                else "Finished with open problems (see Tests / Review). You can still keep, merge or discard it."
+                else f"Finished with open problems (see Tests / Review). The files are in {h.root}."
             )
             h.set(status=status, message=msg)
         except asyncio.CancelledError:
@@ -562,7 +527,18 @@ class PipelineService:
             h.set(status="failed", error=err)
         self._close(h)
 
+    async def _refresh_files(self, h: PipelineHandle) -> None:
+        found = await asyncio.to_thread(ch.changes, h.baseline, h.root)
+        files = [c.path for c in found if c.kind != "deleted"]
+        h.update(lambda s: setattr(s, "files", files))
+
     def _close(self, h: PipelineHandle) -> None:
+        with contextlib.suppress(OSError):
+            found = ch.changes(h.baseline, h.root)
+            files = [c.path for c in found if c.kind != "deleted"]
+            h.update(lambda s: setattr(s, "files", files))
+            self._save_artifact(h, "diff", ch.diff(h.baseline, h.root))
+
         def _fn(s: PipelineSnapshot) -> None:
             s.ended_at = datetime.now(UTC)
             for st in s.stages:

@@ -36,5 +36,6 @@ The script installs dependencies into the project's `.venv` and `web/node_module
 | Force a UI rebuild | `.\start.ps1 -Rebuild` |
 | API docs (Swagger) | http://127.0.0.1:8000/docs |
 | Backend tests | `uv run pytest` |
+| Browser end-to-end test (scripted agents, no API cost) | `uv run python tests/e2e/demo_server.py --port 8768 --data $env:TEMP\cl-demo` then `uv run python tests/e2e/ui_walkthrough.py --url http://127.0.0.1:8768 --out $env:TEMP\cl-shots` |
 | UI dev server (hot reload, needs the backend running) | `npm --prefix web run dev` → http://127.0.0.1:5173 |
 | Start the backend only | `uv run uvicorn api.main:app --host 127.0.0.1 --port 8000` |

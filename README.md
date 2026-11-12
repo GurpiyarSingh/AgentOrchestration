@@ -1,20 +1,23 @@
 # Codeloom
 
-**Codeloom: your AI software team.** It turns a plain-language requirement into tested, reviewed code inside a git repository you choose. It's built on **LangChain + LangGraph** with a **FastAPI** backend and a **React** UI.
+**Codeloom: your AI software team.** It turns a plain-language requirement into tested, reviewed code inside a folder you choose. It's built on **LangChain + LangGraph** with a **FastAPI** backend and a **React** UI.
 
 ```
-Requirement ─► Requirements Analyst ─► Architect ─┬─► Unit Test Writer ─┬─► Code Runner ─► Code Reviewer ─► Merge / Keep / Discard
+Requirement ─► Requirements Analyst ─► Architect ─┬─► Unit Test Writer ─┬─► Code Runner ─► Code Reviewer
                                                   └─► Code Generator ───┘        ▲  │
                                                                                   └──┘ fix loop (Code Generator)
 ```
 
-- **Build:** describe what you need; watch each agent work live (spec, design, files, test results, review, diff), then merge.
-- **Projects:** git repos in Python, JavaScript or TypeScript. Every build runs on its own branch in an isolated worktree; nothing touches your project until you merge. Git stays local and is never pushed.
+- **Build:** describe what you need; watch each agent work live (spec, design, files, test results, review, diff). The code is written straight into your project folder.
+- **Projects:** any folder, for Python, JavaScript or TypeScript. Codeloom never runs git (no init, branches or commits); if the folder is a git repo, the changes are left uncommitted for you.
 - **Agents:** the six-agent build team, with editable prompts, models and limits, plus your own agents.
-- **Tools:** built-in tools with Try-it, and the sandboxed workspace tools the coding agents use.
+- **Tools:** built-in tools with Try-it, the sandboxed workspace tools the coding agents use, and tools from **MCP servers**.
+- **MCP servers:** browse the public MCP Registry, add or import servers (`mcp.json`), connect, and give their tools to agents.
+- **Skills:** reusable know-how (`SKILL.md`) that agents load on demand.
+- **Themes:** light, dark or follow Windows.
 - **Chat:** talk to an agent (with tool calls) or to a model directly.
 - **Runs & traces:** every model call and tool call, with tokens, timing and cost.
-- **Settings:** the OpenAI key (verified, stored in the OS credential store), model choice, pricing and git identity.
+- **Settings:** the OpenAI key (verified, stored in the OS credential store), model choice and pricing.
 - **Usage** (model calls, tool calls, tokens, cost) is always visible in the header.
 - **REST API** with Swagger at `/docs`.
 

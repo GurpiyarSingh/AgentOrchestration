@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { CircleAlert, FolderGit2 } from "lucide-react";
+import { FolderGit2 } from "lucide-react";
 import { api } from "../api";
 import { useData } from "../lib";
 import type { Project } from "../types";
 import { FolderField } from "./FolderPicker";
-import { Badge, Field, Modal, Spinner, useToast } from "./ui";
+import { Field, Modal, Spinner, useToast } from "./ui";
 
 const NAME_RE = /^[a-zA-Z][a-zA-Z0-9_-]{1,48}$/;
 
@@ -30,7 +30,6 @@ export function NewProjectModal({ onClose, onCreated }: { onClose: () => void; o
   const [language, setLanguage] = useState("python");
   const [location, setLocation] = useState("");      // new: parent folder (optional)
   const [repoPath, setRepoPath] = useState("");      // existing: the repository folder
-  const [repoIsGit, setRepoIsGit] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,11 +38,10 @@ export function NewProjectModal({ onClose, onCreated }: { onClose: () => void; o
   const target = mode === "new" && nameOk
     ? joinPath(location.trim() || settings?.workspaces_dir || "workspaces", name.trim())
     : "";
-  const canSubmit = !busy && nameOk && (mode === "new" || (!!repoPath.trim() && repoIsGit !== false));
+  const canSubmit = !busy && nameOk && (mode === "new" || (!!repoPath.trim()));
 
-  const pickRepo = (p: string, isGit: boolean | null) => {
+  const pickRepo = (p: string) => {
     setRepoPath(p);
-    setRepoIsGit(p ? isGit : null); // null = typed by hand, validated by the server
     if (!nameTouched || !name.trim()) setName(slugName(lastSegment(p)));
   };
 
@@ -69,22 +67,19 @@ export function NewProjectModal({ onClose, onCreated }: { onClose: () => void; o
     <Modal title="New project" width={620} onClose={onClose} footer={<>
       <button className="btn" onClick={onClose}>Cancel</button>
       <button className="btn primary" disabled={!canSubmit} onClick={submit}>
-        {busy ? <Spinner size={14} /> : <FolderGit2 size={15} />} {mode === "new" ? "Create project" : "Add repository"}
+        {busy ? <Spinner size={14} /> : <FolderGit2 size={15} />} {mode === "new" ? "Create project" : "Add folder"}
       </button>
     </>}>
       <div className="segmented" style={{ justifySelf: "start" }}>
-        <button className={mode === "new" ? "on" : ""} onClick={() => { setMode("new"); setError(null); }}>New repository</button>
-        <button className={mode === "existing" ? "on" : ""} onClick={() => { setMode("existing"); setError(null); }}>Existing local repo</button>
+        <button className={mode === "new" ? "on" : ""} onClick={() => { setMode("new"); setError(null); }}>New folder</button>
+        <button className={mode === "existing" ? "on" : ""} onClick={() => { setMode("existing"); setError(null); }}>Existing folder</button>
       </div>
 
       {mode === "existing" && (
-        <Field label="Repository folder">
-          <FolderField value={repoPath} dialogTitle="Choose a git repository" requireGit placeholder="Choose a folder…"
+        <Field label="Project folder">
+          <FolderField value={repoPath} dialogTitle="Choose a project folder" placeholder="Choose a folder…"
             onChange={pickRepo} />
-          {repoPath && repoIsGit === true && <div><Badge tone="ok"><FolderGit2 size={11} />git repository</Badge></div>}
-          {repoPath && repoIsGit === false && (
-            <div className="callout warn small"><CircleAlert size={15} />This folder is not a git repository. Pick a folder that contains a <span className="mono">.git</span> folder, or create a new repository instead.</div>
-          )}
+          <div className="xs muted">Any folder. Agents write files straight into it; Codeloom never runs git.</div>
         </Field>
       )}
 

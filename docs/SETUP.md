@@ -8,7 +8,7 @@ Everything needed on a dev machine before starting [M0](IMPLEMENTATION_PLAN.md#m
 
 | Tool | Version | Why | Check |
 |---|---|---|---|
-| **Git** | 2.40+ | Repo management, worktrees for agent runs | `git --version` |
+| **Git** | optional | Not used by the app (ADR-023); only needed to clone this repo | `git --version` |
 | **Python** | 3.14.x | The app itself | `python --version` |
 | **uv** | latest | Python packaging, venv, running the app | `uv --version` |
 | **Node.js** | 22 LTS or newer (incl. `npm`, `npx`) | Most public MCP servers are `npx` packages; JS/TS language profiles | `node -v`, `npx -v` |
@@ -75,7 +75,7 @@ All variables are listed in [`.env.example`](../.env.example). Important ones:
 | `OPENAI_BASE_URL` | – | Override for proxies or OpenAI‑compatible gateways |
 | `DEFAULT_MODEL` / `CHEAP_MODEL` | – | Defaults for new agents. Pick from Settings → LLM → "List models" |
 | `APP_DATA_DIR` | – | SQLite DB + logs (default `./data`) |
-| `WORKSPACES_DIR` | – | Where cloned repos and per‑run worktrees go (default `./workspaces`). Use a short path on Windows, e.g. `C:\aw` |
+| `WORKSPACES_DIR` | – | Default parent folder for new projects (default `./workspaces`). Use a short path on Windows, e.g. `C:\aw` |
 | `GITHUB_TOKEN` | – | Only if not stored in the keyring via Settings |
 | `MAX_COST_PER_RUN_USD` | – | Hard cap per run (default 2.00) |
 | `LOG_LEVEL` | – | `INFO` by default |
@@ -106,11 +106,9 @@ Each should start and wait on stdin (Ctrl+C to exit). If `npx` isn't found from 
 | `npx` / `uvx` not found when the app starts an MCP server | Restart VS Code/terminal after installing; or set the full path (`C:\Program Files\nodejs\npx.cmd`) in the server config |
 | MCP server shows "connected" but no tools | Check the server's stderr in Settings → MCP → server → Logs; many servers need env vars (API keys) |
 | `Filename too long` during worktree or npm install | `git config --global core.longpaths true`; use a short `WORKSPACES_DIR` such as `C:\aw` |
-| Can't delete a worktree ("in use") | Close editors and terminals open in that folder; the app retries cleanup |
 | `401` from OpenAI | Key missing or wrong in `.env`; restart the app after editing `.env` |
 | `model not found` | The model in the agent definition isn't available to your key. Use Settings → LLM → "List models" |
 | `ImportError: cannot import name 'RequestContext' from 'mcp.shared.context'` | `mcp` 2.x got installed; it's incompatible with `langchain-mcp-adapters` 0.3. Run `uv sync` (the lockfile pins `mcp<2`, ADR‑016) |
 | `DeprecationWarning ... asyncio.iscoroutinefunction` in test output | Comes from LangChain/LangSmith on Python 3.14; harmless |
 | Browser shows "UI not built yet" | Run `.\start.ps1 -Rebuild` (or `npm --prefix web install; npm --prefix web run build`) |
-| Build fails with "git is not installed" | Install Git and restart the terminal |
 | TypeScript project tests fail to load | Node.js 22.18+ is required for type stripping (`node -v`) |

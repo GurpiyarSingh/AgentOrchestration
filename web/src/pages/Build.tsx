@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
-  Archive, Ban, Bot, Check, CircleAlert, CircleX, Clock, Cpu, FileCode2, FileText, FlaskConical,
-  FolderGit2, GitBranch, GitMerge, Hammer, Layers, ListChecks, Loader2, Play, Plus, Rocket, ScrollText, ShieldCheck,
-  Sparkles, Trash2, Wrench, Zap,
+  Ban, Bot, Check, CircleAlert, CircleX, Clock, Cpu, FileCode2, FileText, FlaskConical,
+  FolderGit2, FolderOpen, Hammer, Layers, ListChecks, Loader2, Play, Plus, Rocket, ScrollText, ShieldCheck,
+  Sparkles, Wrench, Zap,
 } from "lucide-react";
 import { api } from "../api";
 import { fmt, LANG_LABEL, useData } from "../lib";
@@ -14,7 +14,7 @@ import { TEAM, avatarStyle, lookForStage } from "../components/agents";
 import { PRODUCT } from "../components/Brand";
 import { NewProjectModal } from "../components/NewProjectModal";
 import {
-  Badge, Card, CodeView, Confirm, DiffView, Empty, Field, Pre, Spinner, StatusBadge, Tabs, useToast,
+  Badge, Card, CodeView, DiffView, Empty, Field, Pre, Spinner, StatusBadge, Tabs, useToast,
 } from "../components/ui";
 
 const EXAMPLES = [
@@ -106,7 +106,7 @@ function NewBuild() {
           </div>
         </div>
 
-        <div className="grid-2">
+        <div className="grid-2" style={{ gridTemplateColumns: "1fr 120px" }}>
           <Field label="Model">
             <select className="select" value={model} onChange={(e) => setModel(e.target.value)} disabled={!keyReady}>
               <option value="">{settings?.default_model ? `Default · ${settings.default_model.replace("openai:", "")}` : "Agent defaults"}</option>
@@ -167,12 +167,12 @@ function Welcome() {
             <h2 className="hero-title">Describe it.<br /><span className="grad-text">Your AI team builds it.</span></h2>
             <p className="hero-lead">
               Six specialised agents work together like a real engineering team. They analyse your requirement, design the
-              solution, write tests and code in parallel, run the tests, fix what fails and review the result, all on an
-              isolated git branch. Nothing reaches your project until you merge.
+              solution, write tests and code in parallel, run the tests, fix what fails and review the result, writing
+              straight into your project folder. Codeloom never runs git: committing is up to you.
             </p>
             <div className="row wrap" style={{ gap: 8 }}>
               <Badge tone="accent"><Bot size={12} />6 agents</Badge>
-              <Badge tone="info"><GitBranch size={12} />Isolated branch per build</Badge>
+              <Badge tone="info"><FolderOpen size={12} />Writes into your folder</Badge>
               <Badge tone="ok"><ShieldCheck size={12} />Tested &amp; reviewed</Badge>
             </div>
           </div>
@@ -180,9 +180,9 @@ function Welcome() {
         </div>
         <div className="hero-steps">
           {[
-            ["1", "Pick or create a project", "A git repository in Python, JavaScript or TypeScript."],
+            ["1", "Pick or create a project", "Any folder, for Python, JavaScript or TypeScript."],
             ["2", "Describe the requirement", "Inputs, outputs, edge cases. The analyst fills in sensible assumptions."],
-            ["3", "Watch, review, merge", "Follow every agent live, read the spec, code, tests and review, then merge."],
+            ["3", "Watch and review", "Follow every agent live; the code lands in your folder as it is written."],
           ].map(([n, t, d]) => (
             <div key={n} className="hero-step">
               <span className="n">{n}</span>
@@ -214,8 +214,6 @@ function BuildView({ runId }: { runId: string }) {
   const [poll, setPoll] = useState<number | null>(1500);
   const { data: snap, error, reload } = useData(() => api.build(runId), [runId], poll);
   const [tab, setTab] = useState<TabId>("activity");
-  const [confirm, setConfirm] = useState<null | "merge" | "keep" | "discard">(null);
-  const [acting, setActing] = useState(false);
 
   useEffect(() => {
     setPoll(snap && snap.status !== "running" ? null : 1500);
@@ -225,20 +223,6 @@ function BuildView({ runId }: { runId: string }) {
   if (!snap) return <Card><div className="col" style={{ gap: 12 }}><div className="skeleton" style={{ height: 28, width: "40%" }} /><div className="skeleton" style={{ height: 120 }} /><div className="skeleton" style={{ height: 240 }} /></div></Card>;
 
   const running = snap.status === "running";
-  const finishable = !running && !snap.final_action;
-
-  const act = async (action: "merge" | "keep" | "discard") => {
-    setActing(true);
-    try {
-      const s = await api.finishBuild(runId, action);
-      toast("ok", s.message || "Done");
-      await reload();
-    } catch (e) {
-      toast("err", e instanceof Error ? e.message : String(e));
-    } finally {
-      setActing(false);
-    }
-  };
   const cancel = async () => {
     try { await api.cancelBuild(runId); toast("info", "Build cancelled"); await reload(); }
     catch (e) { toast("err", e instanceof Error ? e.message : String(e)); }
@@ -261,17 +245,12 @@ function BuildView({ runId }: { runId: string }) {
               <div className="small muted" style={{ maxWidth: 900 }}>{snap.requirement}</div>
               <div className="row wrap xs muted" style={{ gap: 14 }}>
                 <span className="row" style={{ gap: 5 }}><FolderGit2 size={13} /><Link to={`/projects/${snap.project_id}`}>{snap.project_name}</Link></span>
-                <span className="row mono" style={{ gap: 5 }}><GitBranch size={13} />{snap.branch}</span>
+                <span className="row mono" style={{ gap: 5 }} title="Files are written directly into this folder"><FolderOpen size={13} />{snap.repo_path}</span>
                 <span className="row" style={{ gap: 5 }}><Clock size={13} />{fmt.time(snap.started_at)} · {fmt.duration(snap.started_at, snap.ended_at)}</span>
               </div>
             </div>
             <div className="row">
               {running && <button className="btn danger" onClick={cancel}><Ban size={15} />Cancel</button>}
-              {finishable && <>
-                <button className="btn" disabled={acting} onClick={() => setConfirm("keep")}><Archive size={15} />Keep branch</button>
-                <button className="btn danger" disabled={acting} onClick={() => setConfirm("discard")}><Trash2 size={15} />Discard</button>
-                <button className="btn primary" disabled={acting} onClick={() => setConfirm("merge")}><GitMerge size={15} />Merge</button>
-              </>}
             </div>
           </div>
 
@@ -317,20 +296,6 @@ function BuildView({ runId }: { runId: string }) {
         </div>
       </section>
 
-      {confirm && (
-        <Confirm
-          title={confirm === "merge" ? "Merge into project?" : confirm === "keep" ? "Keep the branch?" : "Discard this build?"}
-          body={confirm === "merge"
-            ? <>The branch <span className="mono">{snap.branch}</span> will be merged into <span className="mono">{snap.base_branch}</span> of <b>{snap.project_name}</b>. Nothing is pushed anywhere.</>
-            : confirm === "keep"
-              ? <>The build folder is removed but the branch <span className="mono">{snap.branch}</span> stays in the project for you to inspect or merge later.</>
-              : <>The branch and all generated files of this build will be deleted. This cannot be undone.</>}
-          confirmLabel={confirm === "merge" ? "Merge" : confirm === "keep" ? "Keep branch" : "Discard"}
-          danger={confirm === "discard"}
-          onConfirm={() => act(confirm)}
-          onClose={() => setConfirm(null)}
-        />
-      )}
     </div>
   );
 }
@@ -385,7 +350,7 @@ function Activity({ stages, running }: { stages: StageRun[]; running: boolean })
         const Icon = s.stage === "fix" ? Wrench : look.icon;
         return (
           <div key={s.id} className="tl-item">
-            <div className="avatar sm" style={avatarStyle(s.status === "failed" ? "#f87171" : look.color)}>
+            <div className="avatar sm" style={avatarStyle(s.status === "failed" ? "var(--err)" : look.color)}>
               {s.status === "running" ? <Loader2 size={14} className="spin" /> : <Icon size={14} />}
             </div>
             <div className="col" style={{ gap: 4, minWidth: 0 }}>

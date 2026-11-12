@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FileCode2, FolderGit2, GitBranch, Hammer, Plus, Trash2 } from "lucide-react";
+import { FileCode2, FolderGit2, Hammer, Plus, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { fmt, LANG_LABEL, useData } from "../lib";
 import { NewProjectModal } from "../components/NewProjectModal";
@@ -27,7 +27,7 @@ export default function ProjectsPage() {
           {!projects?.length ? (
             <Empty icon={<FolderGit2 size={20} />} title="No projects yet"
               action={<button className="btn primary" onClick={() => setCreating(true)}><Plus size={15} />Create project</button>}>
-              A project is a git repository the agent team writes code into.
+              A project is a folder the agent team writes code into.
             </Empty>
           ) : (
             <div className="list">
@@ -52,7 +52,7 @@ export default function ProjectsPage() {
                   <div className="row"><h2 style={{ fontSize: 18 }}>{selected.name}</h2><Badge tone="accent">{LANG_LABEL[selected.language] ?? selected.language}</Badge></div>
                   <div className="xs muted mono">{selected.path}</div>
                   <div className="row xs muted" style={{ gap: 14 }}>
-                    <span className="row" style={{ gap: 5 }}><GitBranch size={13} />{selected.base_branch}</span>
+                    
                     <span>Added {fmt.time(selected.created_at)}</span>
                   </div>
                 </div>
@@ -72,7 +72,7 @@ export default function ProjectsPage() {
       {creating && <NewProjectModal onClose={() => setCreating(false)} onCreated={(p) => { reload(); nav(`/projects/${p.id}`); }} />}
       {removing && selected && (
         <Confirm title="Remove project?" danger confirmLabel="Remove"
-          body={<>"{selected.name}" will be removed from the app. Its folder and git history stay on disk at <span className="mono">{selected.path}</span>.</>}
+          body={<>"{selected.name}" will be removed from the app. Its folder and files stay on disk at <span className="mono">{selected.path}</span>.</>}
           onConfirm={async () => { await api.removeProject(selected.id); toast("ok", "Project removed"); await reload(); nav("/projects"); }}
           onClose={() => setRemoving(false)} />
       )}
@@ -113,7 +113,7 @@ function ProjectFiles({ projectId }: { projectId: string }) {
   }, [files, sel]);
   useEffect(() => { if (sel) { setContent(null); api.projectFile(projectId, sel).then(setContent).catch((e) => setContent(`Error: ${e.message}`)); } }, [sel, projectId]);
   return (
-    <Card title="Files" sub="Main branch (merged work only)" icon={<FileCode2 size={16} />} tight>
+    <Card title="Files" sub="Current files in the project folder" icon={<FileCode2 size={16} />} tight>
       {!files?.length ? <div className="empty small" style={{ padding: 24 }}>Empty project.</div> : (
         <div className="split-wide" style={{ gap: 0 }}>
           <div className="file-tree" style={{ borderRight: "1px solid var(--border)", padding: "8px 0" }}>

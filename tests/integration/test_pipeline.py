@@ -1,4 +1,4 @@
-"""End-to-end build pipeline with scripted agents, a real git repo and real pytest (no network)."""
+"""End-to-end build pipeline with scripted agents, a real project folder and real pytest (no network, no git)."""
 
 from __future__ import annotations
 
@@ -15,7 +15,6 @@ from core.pipeline.service import PipelineError
 from core.services import Services, build_services
 from core.storage import create_db_engine
 from core.tracing.queries import get_run, usage_summary
-from core.workspace.git import git
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -72,7 +71,7 @@ def _team(models: dict[str, ScriptedChatModel], code_script: list[AIMessage], ap
     models["code_reviewer"] = ScriptedChatModel(script=[_tool("Review", review, "r1")])
 
 
-async def test_happy_path_build_merges_into_project(
+async def test_happy_path_build_writes_into_project(
     env: tuple[Services, dict[str, ScriptedChatModel]],
 ) -> None:
     services, models = env
@@ -99,21 +98,17 @@ async def test_happy_path_build_merges_into_project(
     seen = " ".join(str(m.content) for call in models["test_writer"].calls for m in call)
     assert "join(text.lower()" not in seen
 
-    # files are viewable before merging; the project checkout is untouched
+    # the code is written straight into the project folder; no git anywhere
+    root = Path(project.path)
+    assert (root / "slug.py").read_text() == GOOD
+    assert not (root / ".git").exists()
     assert "slugify" in services.pipelines.file_at(handle.run_id, "slug.py")
-    assert not (Path(project.path) / "slug.py").exists()
-
-    done = await services.pipelines.finish(handle.run_id, "merge")
-    assert done.final_action == "merged"
-    assert (Path(project.path) / "slug.py").read_text() == GOOD
-    log = git(Path(project.path), "log", "--oneline")
-    assert "Merge agent build: Slugify" in log
+    diff = services.pipelines.diff(handle.run_id)
+    assert "+++ b/slug.py" in diff and "+def slugify" in diff and "README.md" not in diff
+    assert "Tests pass" in snap.message and str(root) in snap.message
     rec = get_run(services.db, handle.run_id)
-    assert rec is not None and rec.kind == "pipeline" and rec.final_action == "merged"
+    assert rec is not None and rec.kind == "pipeline" and rec.final_action is None
     assert usage_summary(services.db).model_calls == snap.totals.model_calls
-
-    with pytest.raises(PipelineError, match="already merged"):
-        await services.pipelines.finish(handle.run_id, "discard")
 
 
 async def test_failing_tests_trigger_fix_loop(env: tuple[Services, dict[str, ScriptedChatModel]]) -> None:
@@ -144,9 +139,7 @@ async def test_failing_tests_trigger_fix_loop(env: tuple[Services, dict[str, Scr
     fix_prompt = " ".join(str(m.content) for m in models["code_generator"].calls[2])
     assert "test_lower" in fix_prompt
 
-    discarded = await services.pipelines.finish(handle.run_id, "discard")
-    assert discarded.final_action == "discarded"
-    assert "agents/" not in git(Path(project.path), "branch")
+    assert (Path(project.path) / "slug.py").read_text() == GOOD
 
 
 async def test_tests_never_pass_needs_attention(env: tuple[Services, dict[str, ScriptedChatModel]]) -> None:
@@ -161,8 +154,7 @@ async def test_tests_never_pass_needs_attention(env: tuple[Services, dict[str, S
     snap = services.pipelines.get(handle.run_id)
     assert snap.status == "needs_attention"
     assert snap.test_report and not snap.test_report.ok and snap.test_report.failed == 1
-    kept = await services.pipelines.finish(handle.run_id, "keep")
-    assert kept.final_action == "kept" and "agents/" in git(Path(project.path), "branch")
+    assert (Path(project.path) / "slug.py").read_text() == BAD  # left in place for the user
 
 
 async def test_start_requires_model(env: tuple[Services, dict[str, ScriptedChatModel]]) -> None:
@@ -171,3 +163,44 @@ async def test_start_requires_model(env: tuple[Services, dict[str, ScriptedChatM
     project = services.projects.create("demo4", "python")
     with pytest.raises(PipelineError, match="No model"):
         await services.pipelines.start(PipelineRequest(project_id=project.id, requirement="Make a slugify function"))
+
+
+async def test_existing_git_repo_is_never_touched(
+    env: tuple[Services, dict[str, ScriptedChatModel]], tmp_path: Path
+) -> None:
+    """A git repo can be a project, but builds leave its history, branches and index alone."""
+    import subprocess
+
+    services, models = env
+    repo = tmp_path / "mine"
+    repo.mkdir()
+
+    def g(*a: str) -> str:
+        return subprocess.run(["git", *a], cwd=repo, check=True, capture_output=True, text=True).stdout
+
+    g("init", "-q", "-b", "main")
+    (repo / "README.md").write_text("hi\n")
+    g("-c", "user.name=t", "-c", "user.email=t@t", "add", "-A")
+    g("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init")
+    before = (g("log", "--all", "--oneline"), g("branch", "-a"))
+
+    _team(models, [_write("slug.py", GOOD, "c1"), AIMessage("done", usage_metadata=USAGE)])
+    project = services.projects.add_existing("mine", "python", str(repo))
+    handle = await services.pipelines.start(PipelineRequest(project_id=project.id, requirement="Make a slugify"))
+    assert handle.task is not None
+    await handle.task
+    assert services.pipelines.get(handle.run_id).status == "done"
+    assert (g("log", "--all", "--oneline"), g("branch", "-a")) == before  # no commits, no branches
+    assert "?? slug.py" in g("status", "--porcelain")  # left as ordinary uncommitted files
+    assert g("diff", "--cached", "--name-only") == ""  # nothing staged
+
+
+async def test_one_build_per_project_at_a_time(env: tuple[Services, dict[str, ScriptedChatModel]]) -> None:
+    services, models = env
+    _team(models, [_write("slug.py", GOOD, "c1"), AIMessage("done", usage_metadata=USAGE)])
+    project = services.projects.create("busy", "python")
+    handle = await services.pipelines.start(PipelineRequest(project_id=project.id, requirement="Make a slugify"))
+    with pytest.raises(PipelineError, match="already writing"):
+        await services.pipelines.start(PipelineRequest(project_id=project.id, requirement="Make another one"))
+    assert handle.task is not None
+    await handle.task

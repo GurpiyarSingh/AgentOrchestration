@@ -13,7 +13,6 @@ from api.schemas import (
     AgentYaml,
     ChatRequest,
     ChatResponse,
-    FinishRequest,
     Health,
     KeyRequest,
     PickFolderRequest,
@@ -69,6 +68,7 @@ def health(s: S) -> Health:
         agents=len(s.agents.list_all()),
         tools=len(s.tools.entries()),
         projects=len(s.projects.list_all()),
+        mcp_connected=s.mcp.connected_count(),
     )
 
 
@@ -97,8 +97,9 @@ async def pick_folder(body: PickFolderRequest) -> PickFolderResult:
         path = await asyncio.to_thread(pick_folder_native, body.title, body.initial)
     except FolderPickerError as exc:
         raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, str(exc)) from exc
-    return PickFolderResult(path=path, cancelled=path is None,
-                            is_git=path is not None and (Path(path) / ".git").exists())
+    return PickFolderResult(
+        path=path, cancelled=path is None, is_git=path is not None and (Path(path) / ".git").exists()
+    )
 
 
 @router.get("/system/folders", tags=["system"])
@@ -218,6 +219,9 @@ def put_agent(name: str, agent: AgentDef, s: S) -> AgentDef:
         s.tools.resolve(agent.tools)
     except UnknownToolError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    known = {sk.name for sk in s.skills.list_all()}
+    if missing := [x for x in agent.skills if x not in known]:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Unknown skill(s): {', '.join(missing)}")
     return s.agents.save(agent)
 
 
@@ -408,10 +412,10 @@ def projects(s: S) -> list[Project]:
 
 @router.post("/projects", tags=["projects"], status_code=status.HTTP_201_CREATED)
 def create_project(body: ProjectCreate, s: S) -> Project:
-    """Create a new git project (with a language scaffold) or register an existing repo."""
+    """Create a new project folder (with a language scaffold) or register an existing folder. No git."""
     if body.mode == "existing":
         if not body.path:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "`path` is required for an existing repo.")
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "`path` is required for an existing folder.")
         return s.projects.add_existing(body.name, body.language, body.path)
     return s.projects.create(body.name, body.language, body.path)
 
@@ -430,14 +434,14 @@ def delete_project(project_id: str, s: S) -> None:
 
 @router.get("/projects/{project_id}/files", tags=["projects"])
 def project_files(project_id: str, s: S) -> list[FileEntry]:
-    """Files in the project's main checkout."""
+    """Files in the project folder."""
 
     return list_tree(Path(s.projects.get(project_id).path))
 
 
 @router.get("/projects/{project_id}/file", tags=["projects"], response_class=PlainTextResponse)
 def project_file(project_id: str, path: str, s: S) -> str:
-    """File content from the project's main checkout."""
+    """File content from the project folder."""
 
     return read_text(Path(s.projects.get(project_id).path), path)
 
@@ -447,7 +451,7 @@ def project_file(project_id: str, path: str, s: S) -> str:
 
 @router.post("/builds", tags=["builds"], status_code=status.HTTP_202_ACCEPTED)
 async def start_build(body: PipelineRequest, s: S) -> PipelineSnapshot:
-    """Start a build: requirements → design → tests ∥ code → run → fix → review, on its own branch."""
+    """Start a build (requirements → design → tests ∥ code → run → fix → review), written into the project folder."""
     handle = await s.pipelines.start(body)
     return handle.snapshot()
 
@@ -470,12 +474,6 @@ def build_detail(run_id: str, s: S) -> PipelineSnapshot:
 async def cancel_build(run_id: str, s: S) -> dict[str, bool]:
     """Cancel a running build."""
     return {"cancelled": await s.pipelines.cancel(run_id)}
-
-
-@router.post("/builds/{run_id}/finish", tags=["builds"])
-async def finish_build(run_id: str, body: FinishRequest, s: S) -> PipelineSnapshot:
-    """Merge the build into the project, keep its branch, or discard it."""
-    return await s.pipelines.finish(run_id, body.action)
 
 
 @router.get("/builds/{run_id}/file", tags=["builds"], response_class=PlainTextResponse)

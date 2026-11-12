@@ -11,6 +11,7 @@ LLM output isn't deterministic, so tests are split into **deterministic tests** 
 | **Unit** | Pure functions, models, parsers, path sandbox, model factory | ❌ | ❌ | Every commit | `tests/unit/` |
 | **Integration** | Agents (`create_agent`) and LangGraph workflows driven by `ScriptedChatModel`, tool registry, MCP adapters against local fixture servers, RepoManager on temp git repos, runner on fixture projects | ❌ (ScriptedChatModel) | ❌ | Every commit | `tests/integration/` |
 | **API** | Every route group via FastAPI `TestClient` with `ScriptedChatModel` and an in‑memory DB | ❌ | ❌ | Every commit | `tests/integration/test_api.py` |
+| **Browser E2E** | `tests/e2e/ui_walkthrough.py` drives the installed Microsoft Edge (Playwright) through every page against `tests/e2e/demo_server.py` (scripted agents, real git/pytest); fails on JS errors, 5xx responses or broken flows, and saves screenshots | ❌ (scripted) | ❌ | Before each UI release | `tests/e2e/` |
 | **Security** | Attack cases for the sandbox, redaction, env scrubbing, approval gates | ❌ | ❌ | Every commit | `tests/security/` |
 | **Live smoke** | One real call per provider feature (text, tools, structured output, streaming) | ✅ | ✅ | Manual / nightly: `pytest -m live` | `tests/live/` |
 | **Evals** | Dev team and other workflows on a fixed task set; quality + cost scores | ✅ | ✅ | On demand, before/after prompt or model changes | `evals/` |
@@ -48,7 +49,7 @@ agent = create_agent(model, tools=[calculator])
 
 - `../outside.txt`, `sub/../../outside.txt`
 - `/etc/passwd`, `C:\Windows\win.ini`, `\\server\share\x`
-- A symlink and an NTFS junction inside the worktree pointing outside it
+- A symlink and an NTFS junction inside the project folder pointing outside it
 - `.env`, `.ENV`, `config/.env.local`, `.git/config`, `.github/workflows/ci.yml`
 - `file.txt::$DATA` and `file.txt:stream` (alternate data streams)
 - Very long paths, and names with trailing dots/spaces (Windows normalisation)
@@ -67,7 +68,7 @@ Plus:
 | Tool registry | namespacing, unknown tool, truncation, approval flag → HITL middleware |
 | MCPManager | connect (adapters), list tools, call, server crash → reconnect, timeout, stderr capture |
 | SkillLoader | frontmatter parsing, missing fields, `load_skill` output |
-| RepoManager | add/new/clone (local bare remote), worktree start/commit/diff/discard, merge, no change to the user's checkout |
+| Projects & changes | new folder (no `.git`), any existing folder, change tracking + diff, builds in a git repo leave history/branches/index untouched |
 | Languages | profile validation, detection on fixture repos, toolchain check parsing |
 | Runner + parsers | pass/fail/error/timeout per framework; process‑tree kill on timeout |
 | Workflow builder / patterns | each node type and pattern with `ScriptedChatModel`; loop limits; `AsyncSqliteSaver` checkpoint + resume; `interrupt()` pause / `Command(resume=...)` |

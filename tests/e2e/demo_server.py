@@ -64,18 +64,24 @@ def script_for(agent: AgentDef) -> list[AIMessage]:
         case "architect":
             return [_tool("Plan", PLAN, "plan")]
         case "test_writer":
-            return [_tool("repo__write_file", {"path": "tests/test_numfmt.py", "content": TESTS}, "t"),
-                    AIMessage("Wrote 3 tests.", usage_metadata=USAGE)]
+            return [
+                _tool("repo__write_file", {"path": "tests/test_numfmt.py", "content": TESTS}, "t"),
+                AIMessage("Wrote 3 tests.", usage_metadata=USAGE),
+            ]
         case "code_generator":
-            return [_tool("repo__write_file", {"path": "numfmt.py", "content": CODE}, "c"),
-                    AIMessage("Implemented format_thousands().", usage_metadata=USAGE)]
+            return [
+                _tool("repo__write_file", {"path": "numfmt.py", "content": CODE}, "c"),
+                AIMessage("Implemented format_thousands().", usage_metadata=USAGE),
+            ]
         case "code_reviewer":
             return [_tool("Review", {"approved": True, "summary": "Correct and well tested.", "issues": []}, "r")]
         case "chat":
             return [AIMessage("Hello from the scripted model.", usage_metadata=USAGE)]
         case _:  # any chat agent: one calculator call, then an answer
-            return [_tool("builtin__calculator", {"expression": "17.5 * 2340 / 100"}, "calc"),
-                    AIMessage("17.5% of 2,340 is 409.5.", usage_metadata=USAGE)]
+            return [
+                _tool("builtin__calculator", {"expression": "17.5 * 2340 / 100"}, "calc"),
+                AIMessage("17.5% of 2,340 is 409.5.", usage_metadata=USAGE),
+            ]
 
 
 def main() -> None:
@@ -97,12 +103,41 @@ def main() -> None:
     core.services.list_models = fake_list_models  # type: ignore[assignment]
     api.routes.list_models = fake_list_models  # type: ignore[assignment]
 
+    # Offline MCP registry: one entry that installs the local fixture server.
+    import sys
+
+    import api.routes_mcp_skills
+    from core.mcp.config import McpServerConfig
+    from core.mcp.registry_client import RegistryEntry
+
+    echo = str(ROOT / "tests" / "fixtures" / "mcp_echo_server.py")
+
+    async def fake_registry(query: str, limit: int = 30) -> list[RegistryEntry]:
+        return [
+            RegistryEntry(
+                name="io.codeloom/echo-math",
+                title="Echo Math",
+                description="Adds numbers (test fixture server).",
+                version="1.0.0",
+                kind="pypi",
+                note="Runs locally with Python.",
+                draft=McpServerConfig(name="echo-math", transport="stdio", command=sys.executable, args=[echo]),
+            )
+        ]
+
+    api.routes_mcp_skills.search_registry = fake_registry  # type: ignore[assignment]
+
     import shutil
 
     if not (data / "config").exists():  # never write to the real config (prices, agents)
         shutil.copytree(ROOT / "config", data / "config")
-    settings = Settings(_env_file=None, app_data_dir=data / "data", workspaces_dir=data / "ws",
-                        config_dir=data / "config", samples_dir=data / "samples")
+    settings = Settings(
+        _env_file=None,
+        app_data_dir=data / "data",
+        workspaces_dir=data / "ws",
+        config_dir=data / "config",
+        samples_dir=data / "samples",
+    )
     services = build_services(
         settings,
         model_factory=lambda ref, agent: ScriptedChatModel(script=script_for(agent)),

@@ -1,0 +1,159 @@
+/* ==========================================================================
+   Codeloom light theme. Applied when <html data-theme="light">.
+   Overrides the design tokens plus the few rules that use dark-only colours.
+   ========================================================================== */
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f2f7f4;
+  --bg-elev: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #eef5f1;
+  --surface-3: #e1ece6;
+  --border: #d5e3db;
+  --border-strong: #bcd0c4;
+  --text: #0a1d14;
+  --text-2: #2c4639;
+  --muted: #587063;
+  --faint: #879d91;
+
+  --accent: #059669;
+  --accent-2: #047857;
+  --accent-soft: rgba(5, 150, 105, 0.10);
+  --accent-ring: rgba(5, 150, 105, 0.32);
+  --cyan: #0d9488;
+
+  --ok: #059669;
+  --ok-soft: rgba(5, 150, 105, 0.10);
+  --warn: #b45309;
+  --warn-soft: rgba(245, 158, 11, 0.13);
+  --err: #dc2626;
+  --err-soft: rgba(220, 38, 38, 0.08);
+  --info: #2563eb;
+  --info-soft: rgba(37, 99, 235, 0.08);
+
+  --shadow: 0 1px 2px rgba(16, 44, 30, 0.06), 0 8px 24px rgba(16, 44, 30, 0.06);
+  --shadow-lg: 0 24px 64px rgba(16, 44, 30, 0.18);
+
+  /* agent identities: same hues, darkened for contrast on white */
+  --agent-requirements: #4d7c0f;
+  --agent-architecture: #0f766e;
+  --agent-tests: #a16207;
+  --agent-code: #047857;
+  --agent-run: #0369a1;
+  --agent-review: #a21caf;
+  --agent-general: #475569;
+  --avatar-bg: #ffffff;
+  --cl-orbit: #b7d3c3;
+  --cl-orbit-2: #cfe2d7;
+  --cl-core-bg: #ffffff;
+  --cl-node-bg: #ffffff;
+}
+
+/* ---------- Page & shell ---------- */
+[data-theme="light"] body {
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(16, 185, 129, 0.12), transparent 60%),
+    radial-gradient(900px 500px at 10% 110%, rgba(13, 148, 136, 0.08), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+[data-theme="light"] .sidebar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(241, 248, 244, 0.92));
+}
+[data-theme="light"] .sidebar::after {
+  background: linear-gradient(180deg, transparent, rgba(5, 150, 105, .35), rgba(13, 148, 136, .2), transparent);
+}
+[data-theme="light"] .brand-name {
+  background: linear-gradient(90deg, #064e3b, #047857 55%, #0d9488);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+[data-theme="light"] .nav-item.active { color: #065f46; background: linear-gradient(90deg, rgba(5, 150, 105, .14), rgba(5, 150, 105, .03)); }
+[data-theme="light"] .topbar { background: rgba(255, 255, 255, 0.7); }
+
+/* ---------- Surfaces ---------- */
+[data-theme="light"] .card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(250, 253, 251, 0.86));
+  border-color: var(--border);
+}
+[data-theme="light"] .usage-item { background: rgba(255, 255, 255, 0.8); }
+[data-theme="light"] .step,
+[data-theme="light"] .flow-item,
+[data-theme="light"] .hero-step,
+[data-theme="light"] .agent-card { background: rgba(255, 255, 255, 0.85); border-color: var(--border); }
+[data-theme="light"] .step.running {
+  background:
+    linear-gradient(rgba(255, 255, 255, .97), rgba(255, 255, 255, .97)) padding-box,
+    conic-gradient(from var(--ang), var(--c), transparent 30%, transparent 70%, var(--c)) border-box;
+}
+[data-theme="light"] .modal { background: #ffffff; border-color: var(--border-strong); }
+[data-theme="light"] .overlay { background: rgba(10, 29, 20, 0.35); }
+[data-theme="light"] .overlay ~ .overlay { background: rgba(10, 29, 20, 0.5); }
+[data-theme="light"] .toast { background: #ffffff; }
+
+/* ---------- Hero ---------- */
+[data-theme="light"] .hero-agentic {
+  border-color: rgba(5, 150, 105, .22);
+  background:
+    radial-gradient(600px 300px at 75% 40%, rgba(16, 185, 129, .12), transparent 70%),
+    radial-gradient(400px 260px at 15% 90%, rgba(13, 148, 136, .07), transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, .92), rgba(246, 251, 248, .92));
+  box-shadow: 0 30px 80px rgba(16, 44, 30, .12), inset 0 1px 0 rgba(255, 255, 255, .8);
+}
+[data-theme="light"] .hero-agentic::before {
+  background-image:
+    linear-gradient(rgba(5, 150, 105, .07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(5, 150, 105, .07) 1px, transparent 1px);
+}
+[data-theme="light"] .grad-text {
+  background: linear-gradient(92deg, #064e3b 0%, #047857 45%, #4d7c0f 70%, #0d9488 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+[data-theme="light"] .eyebrow { color: #047857; }
+[data-theme="light"] .build-head::before { background: radial-gradient(500px 160px at 90% 0%, rgba(16, 185, 129, .10), transparent 70%); }
+
+/* ---------- Controls ---------- */
+[data-theme="light"] .btn { background: #ffffff; }
+[data-theme="light"] .btn:hover { background: var(--surface-2); }
+[data-theme="light"] .btn.ghost { background: transparent; }
+[data-theme="light"] .btn.ghost:hover { background: var(--surface-2); }
+[data-theme="light"] .btn.primary {
+  background: linear-gradient(180deg, #10b981, #047857); border-color: #047857; color: #ffffff;
+  box-shadow: 0 6px 16px rgba(4, 120, 87, .25);
+}
+[data-theme="light"] .btn.primary:hover { background: linear-gradient(180deg, #34d399, #059669); }
+[data-theme="light"] .btn.success { background: var(--ok-soft); border-color: rgba(5, 150, 105, .35); color: #065f46; }
+[data-theme="light"] .btn.danger { background: transparent; border-color: rgba(220, 38, 38, .35); color: #b91c1c; }
+[data-theme="light"] .btn.danger:hover { background: var(--err-soft); }
+[data-theme="light"] .toggle input:checked + span::before { background: #ffffff; }
+[data-theme="light"] .segmented button.on { background: #ffffff; box-shadow: 0 1px 3px rgba(16, 44, 30, .15); }
+[data-theme="light"] .input, [data-theme="light"] .select, [data-theme="light"] .textarea { background: #ffffff; }
+[data-theme="light"] .hero-step .n { color: #ffffff; background: linear-gradient(135deg, #059669, #0d9488); }
+
+/* ---------- Badges, chips, callouts ---------- */
+[data-theme="light"] .badge { background: var(--surface-2); }
+[data-theme="light"] .badge.ok { color: #065f46; border-color: rgba(5, 150, 105, .3); background: var(--ok-soft); }
+[data-theme="light"] .badge.warn { color: #92400e; border-color: rgba(217, 119, 6, .35); background: var(--warn-soft); }
+[data-theme="light"] .badge.err { color: #b91c1c; border-color: rgba(220, 38, 38, .3); background: var(--err-soft); }
+[data-theme="light"] .badge.info { color: #1d4ed8; border-color: rgba(37, 99, 235, .3); background: var(--info-soft); }
+[data-theme="light"] .badge.accent { color: #065f46; background: var(--accent-soft); }
+[data-theme="light"] .chip { background: #ffffff; }
+[data-theme="light"] .chip.on { color: #065f46; background: var(--accent-soft); }
+[data-theme="light"] .callout { background: #ffffff; }
+[data-theme="light"] .callout.warn { background: #fffbeb; border-color: rgba(217, 119, 6, .35); }
+[data-theme="light"] .callout.err { background: #fef2f2; border-color: rgba(220, 38, 38, .3); }
+[data-theme="light"] .callout.ok { background: #ecfdf5; border-color: rgba(5, 150, 105, .3); }
+[data-theme="light"] .callout.info { background: #f0fdf9; }
+
+/* ---------- Code & diff ---------- */
+[data-theme="light"] .code { background: #f7fbf9; border-color: var(--border); }
+[data-theme="light"] .code td.src, [data-theme="light"] .code pre { color: #12291e; }
+[data-theme="light"] .diff-add { background: rgba(16, 185, 129, .12); color: #065f46 !important; }
+[data-theme="light"] .diff-del { background: rgba(239, 68, 68, .10); color: #991b1b !important; }
+[data-theme="light"] .diff-hunk { color: #1d4ed8 !important; }
+
+/* ---------- Tables, lists ---------- */
+[data-theme="light"] .table th { background: #f7fbf9; }
+[data-theme="light"] .skeleton { background: linear-gradient(90deg, #eef5f1, #e1ece6, #eef5f1); background-size: 200% 100%; }
+[data-theme="light"] .net-bg { opacity: .7; }

@@ -218,6 +218,8 @@ The user registers repositories in the UI (**Repositories** page, §6.8) and pic
   - install / test / lint commands, pre‑filled from the language profile and editable per repo
   - default base branch
   - **protected paths** the agents may never touch (`.env`, `.git/`, `.github/workflows/`, secrets)
+> **Changed (ADR-023):** the app no longer uses git. Agents write directly into the project folder, any folder can be a project, and there is no merge / keep / discard step. The git-based design below is kept for history.
+
 - **Isolation per run.** Each run creates a branch `agents/<run-id>-<slug>` from the base branch, checked out as a **git worktree** in a separate folder. Agents work in that worktree only, so your current checkout and `main` are never touched, and several runs can work on the same repo at once.
 - **A sandboxed file layer.** Agents get repo tools (`list_files`, `read_file`, `write_file`, `apply_patch`, `search_code`) that resolve every path against the worktree root. They reject anything outside it (`..`, absolute paths, symlinks out) or in a protected path. General‑purpose filesystem MCP servers are **not** given to coding agents, so this rule can't be bypassed.
 - **A commit per step** (`[architect] plan`, `[coder] attempt 2`, `[tests] add tests`…). The UI can show the diff of each step, and a bad step can be rolled back.

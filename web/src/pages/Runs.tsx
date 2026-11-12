@@ -53,7 +53,9 @@ export default function RunsPage() {
           </div>
         )}
       </Card>
-      {sel && <Trace runId={sel.run_id} title={sel.target} kind={sel.kind} />}
+      {sel ? <Trace runId={sel.run_id} title={sel.target} kind={sel.kind} /> : shown.length > 0 && (
+        <Card><Empty icon={<Activity size={20} />} title="Select a run">Click any row to see its full trace: every model call and tool call, with inputs, outputs, tokens and timing.</Empty></Card>
+      )}
     </div>
   );
 }

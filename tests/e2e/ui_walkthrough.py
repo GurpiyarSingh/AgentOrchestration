@@ -24,6 +24,7 @@ def check(cond: bool, msg: str) -> None:
 
 
 def shot(page: Page, out: Path, name: str) -> None:
+    page.wait_for_timeout(350)  # let enter animations finish
     page.screenshot(path=str(out / f"{name}.png"), full_page=False)
 
 
@@ -42,8 +43,13 @@ def main() -> None:
         page.set_default_timeout(15000)
         page.on("console", lambda m: m.type == "error" and problems.append(f"console error: {m.text}"))
         page.on("pageerror", lambda e: problems.append(f"page error: {e}"))
-        page.on("response", lambda r: (r.status >= 500 and "/api/" in r.url)
-                and problems.append(f"HTTP {r.status} {r.request.method} {r.url}"))
+        page.on(
+            "response",
+            lambda r: (
+                (r.status >= 500 and "/api/" in r.url)
+                and problems.append(f"HTTP {r.status} {r.request.method} {r.url}")
+            ),
+        )
 
         # ---- onboarding -----------------------------------------------------------------
         print("Onboarding")
@@ -94,33 +100,26 @@ def main() -> None:
         page.keyboard.press("Escape")
 
         # ---- existing repo via the in-app folder browser --------------------------------------
-        print("Existing repo")
-        import subprocess
+        print("Existing folder (plain, no git)")
         import tempfile
 
         parent = Path(tempfile.mkdtemp(prefix="cl-e2e-"))
         repo = parent / "My Existing Repo"
         repo.mkdir()
-        subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo, check=True)
         (repo / "README.md").write_text("hi\n")
-        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "add", "-A"], cwd=repo, check=True)
-        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init"], cwd=repo, check=True)
         page.get_by_title("New project").click()
-        page.get_by_role("button", name="Existing local repo").click()
+        page.get_by_role("button", name="Existing folder").click()
         page.locator(".modal input.mono").first.fill(str(parent))
         page.get_by_role("button", name="Browse here").click()
         browser_modal = page.locator(".modal").last
         expect(browser_modal.locator(".file-item", has_text="My Existing Repo")).to_be_visible()
-        check(browser_modal.locator(".file-item", has_text="My Existing Repo").locator(".badge").count() == 1,
-              "in-app browser flags the git repo")
         shot(page, out, "03b-folder-browser")
         browser_modal.locator(".file-item", has_text="My Existing Repo").click()
-        expect(browser_modal.locator(".badge", has_text="git repository")).to_be_visible()
         browser_modal.get_by_role("button", name="Select this folder").click()
         check(page.locator(".modal input").nth(1).input_value() == "my-existing-repo", "name auto-filled from folder")
-        page.get_by_role("button", name="Add repository").click()
+        page.get_by_role("button", name="Add folder").click()
         expect(page.locator(".toast", has_text="my-existing-repo").first).to_be_visible()
-        check(True, "existing repo added via folder browser")
+        check(True, "plain folder added via folder browser")
         page.keyboard.press("Escape")
         page.locator("select").first.select_option(label="test-repo · Python")
 
@@ -131,7 +130,9 @@ def main() -> None:
         page.wait_for_url(re.compile(r"/builds/"))
         expect(page.locator(".step").first).to_be_visible()
         shot(page, out, "04-build-running")
-        expect(page.locator(".build-head .badge").first).to_contain_text(re.compile("Done|Needs attention"), timeout=60000)
+        expect(page.locator(".build-head .badge").first).to_contain_text(
+            re.compile("Done|Needs attention"), timeout=60000
+        )
         check("Done" in page.locator(".build-head .badge").first.inner_text(), "build finished Done")
         shot(page, out, "05-build-done")
         for tab in ["Requirements", "Design", "Files", "Tests", "Review", "Diff"]:
@@ -142,19 +143,15 @@ def main() -> None:
         page.locator(".tab", has_text="Files").click()
         expect(page.locator(".code")).to_contain_text("format_thousands")
         check(True, "generated file content visible")
-        page.get_by_role("button", name="Merge").click()
-        expect(page.locator(".modal")).to_be_visible()
-        page.locator(".modal").get_by_role("button", name="Merge").click()
-        expect(page.locator(".build-head")).to_contain_text("Merged")
-        check(page.get_by_role("button", name="Merge").count() == 0, "finish actions hidden after merge")
-        shot(page, out, "07-build-merged")
+        check(page.get_by_role("button", name="Merge").count() == 0, "no merge step (written directly)")
+        check("The files are in" in page.locator(".build-head").inner_text(), "build says where the files are")
 
         # ---- projects -----------------------------------------------------------------------
         print("Projects")
         page.get_by_role("link", name="Projects").first.click()
         page.locator(".list-item", has_text="test-repo").click()
         expect(page.locator(".file-item", has_text=re.compile(r"^numfmt.py")).first).to_be_visible()
-        check(True, "merged file in project tree")
+        check(True, "generated file in project folder")
         shot(page, out, "08-projects")
 
         # ---- agents -----------------------------------------------------------------------
@@ -174,6 +171,76 @@ def main() -> None:
         check(True, "agent edited, step agent shown, new agent created")
         shot(page, out, "09-agents")
 
+        # ---- MCP servers ----------------------------------------------------------------------
+        print("MCP")
+        echo = str(Path(__file__).resolve().parents[1] / "fixtures" / "mcp_echo_server.py")
+        page.get_by_role("link", name="MCP servers").first.click()
+        expect(page.get_by_text("Quick start")).to_be_visible()
+        shot(page, out, "13-mcp-empty")
+        page.get_by_role("button", name="Add manually").click()
+        m = page.locator(".modal")
+        m.locator("input").first.fill("echo")
+        m.get_by_placeholder("npx").fill(sys.executable)
+        m.locator("textarea").fill(echo)
+        m.get_by_role("button", name="Add").click()
+        m.get_by_placeholder("API_KEY").fill("ECHO_TOKEN")
+        m.get_by_placeholder("value").fill("very-secret")
+        shot(page, out, "14-mcp-add")
+        m.get_by_role("button", name="Save & connect").click()
+        expect(page.locator(".card", has_text="echo").get_by_text("connected", exact=True)).to_be_visible(timeout=60000)
+        check(
+            page.locator(".card", has_text="echo").get_by_text("2 tools").count() == 1,
+            "manual MCP server connected with 2 tools",
+        )
+        page.get_by_role("button", name="Show tools").click()
+        expect(page.get_by_text("needs approval")).to_be_visible()
+        check(True, "destructive MCP tool flagged for approval")
+        page.get_by_role("button", name="Browse registry").click()
+        reg = page.locator(".modal")
+        expect(reg.get_by_text("Echo Math")).to_be_visible()
+        reg.get_by_role("button", name="Use").first.click()
+        expect(page.locator(".modal").get_by_text("io.codeloom/echo-math")).to_be_visible()
+        page.locator(".modal").get_by_role("button", name="Save & connect").click()
+        expect(page.locator(".card", has_text="echo-math").get_by_text("connected", exact=True)).to_be_visible(
+            timeout=60000
+        )
+        check(True, "server added from the registry and connected")
+        page.get_by_role("button", name="Import JSON").click()
+        import json as _json
+
+        page.locator(".modal textarea").fill(
+            _json.dumps({"mcpServers": {"echo-json": {"command": sys.executable, "args": [echo]}}})
+        )
+        page.locator(".modal").get_by_role("button", name="Import & connect").click()
+        expect(page.locator(".card", has_text="echo-json").get_by_text("connected", exact=True)).to_be_visible(
+            timeout=60000
+        )
+        check(True, "server imported from mcp.json and connected")
+        shot(page, out, "15-mcp-servers")
+
+        # ---- skills ---------------------------------------------------------------------------
+        print("Skills")
+        page.get_by_role("link", name="Skills").first.click()
+        expect(page.locator(".list-item", has_text="test-design")).to_be_visible()
+        page.get_by_role("button", name="New").click()
+        page.get_by_placeholder("api-design").fill("api-style")
+        page.get_by_placeholder("REST API design conventions").fill(
+            "REST API conventions. Use when designing endpoints."
+        )
+        page.get_by_role("button", name="Save").click()
+        expect(page.locator(".list-item", has_text="api-style")).to_be_visible()
+        check(True, "skill created")
+        shot(page, out, "16-skills")
+        page.get_by_role("link", name="Agents").first.click()
+        page.locator(".list-item", has_text="assistant").click()
+        page.locator(".chip", has_text="api-style").click()
+        page.get_by_role("button", name="Save").click()
+        expect(page.locator(".toast", has_text="Saved assistant").first).to_be_visible()
+        page.get_by_role("link", name="Skills").first.click()
+        page.locator(".list-item", has_text="api-style").click()
+        expect(page.locator(".badge", has_text="assistant")).to_be_visible()
+        check(True, "skill assigned to an agent (shown as Used by)")
+
         # ---- tools --------------------------------------------------------------------------
         print("Tools")
         page.get_by_role("link", name="Tools").first.click()
@@ -182,6 +249,13 @@ def main() -> None:
         page.get_by_role("button", name="Run").click()
         expect(page.locator(".code pre").last).to_have_text("42")
         check(True, "calculator Try-it returns 42")
+        page.locator(".list-item", has_text="echo__add").first.click()
+        tool_card = page.locator("div", has=page.locator(".list-item", has_text="echo__add")).last
+        tool_card.get_by_placeholder("integer").nth(0).fill("40")
+        tool_card.get_by_placeholder("integer").nth(1).fill("2")
+        tool_card.get_by_role("button", name="Run").click()
+        expect(tool_card.locator(".code pre").last).to_have_text("42")
+        check(True, "MCP tool callable from the Tools page")
         shot(page, out, "10-tools")
 
         # ---- chat ---------------------------------------------------------------------------
@@ -213,6 +287,41 @@ def main() -> None:
         page.reload()
         expect(page.locator(".span-row").first).to_be_visible()
         check(True, "deep link survives reload")
+
+        # ---- themes -------------------------------------------------------------------------
+        print("Themes")
+        html = page.locator("html")
+        check(html.get_attribute("data-theme") == "dark", "dark theme by default")
+        page.get_by_label("Switch to light theme").click()
+        check(html.get_attribute("data-theme") == "light", "toggle switches to light")
+        page.reload()
+        expect(page.locator(".span-row").first).to_be_visible()
+        check(html.get_attribute("data-theme") == "light", "light theme survives reload")
+        page.get_by_role("link", name="Settings").first.click()
+        page.get_by_role("button", name="Dark", exact=True).click()
+        check(html.get_attribute("data-theme") == "dark", "Settings > Appearance switches back to dark")
+        page.get_by_role("button", name="System", exact=True).click()
+        check(html.get_attribute("data-theme") in {"light", "dark"}, "System theme resolves")
+        page.get_by_role("button", name="Light", exact=True).click()
+        for name, url in [
+            ("home", "/"),
+            ("build", None),
+            ("agents", "/agents"),
+            ("settings", "/settings"),
+            ("chat", "/chat"),
+            ("runs", "/runs"),
+            ("projects", "/projects"),
+            ("tools", "/tools"),
+        ]:
+            if url is None:
+                page.goto(base + "/")
+                page.locator(".list-item").first.click()
+                page.wait_for_url(re.compile(r"/builds/"))
+                expect(page.locator(".build-head")).to_be_visible()
+            else:
+                page.goto(base + url)
+            shot(page, out, f"20-light-{name}")
+        check(True, "light-theme screenshots captured")
 
         browser.close()
 

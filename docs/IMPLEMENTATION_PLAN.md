@@ -179,35 +179,35 @@ After user feedback the product was rebuilt around the core use case:
 - [x] **Key in the UI only** (ADR‑021); model selection from all models available to the key; pricing editor.
 - [x] REST API under `/api` (builds, projects, agents, tools, chat, runs, settings, usage, languages) with Swagger.
 
-Remaining from the original M2–M4, still planned: MCP servers (M2‑T1…T4), skills (M2‑T6), human approval gates mid-build (M4‑T2/T3), A2A (M4‑T6), Docker runner (M5‑T1).
+Remaining from the original M2–M4, still planned: clone-from-URL / apply_patch / extra languages (M2‑T7…T9 gaps), human approval gates mid-build (M4‑T2/T3), A2A (M4‑T6), Docker runner (M5‑T1).
 
-## M2: MCP, Settings, Skills, Repositories, Languages
+## M2: MCP, Settings, Skills, Repositories, Languages ✅ (small gaps noted per task)
 
 **Exit criteria:** (a) add a public MCP server from the registry, see its tools, and use them from an agent; (b) register a new Python repo from the UI, run a single coder agent that writes a module + tests on an agent branch, and see the diff and test report; same for a TypeScript repo.
 
 ### MCP
-- [ ] **M2-T1 MCPManager.** Wrap `MultiServerMCPClient` (stdio + Streamable HTTP): persistent sessions on the engine loop (`client.session(name)`), per‑server status / last error / stderr, reconnect, tool discovery via `load_mcp_tools(session)`; tool names prefixed `<server>__`.
+- [x] **M2-T1 MCPManager.** **Done** (`core/mcp/manager.py`): one long-lived task per server owns the session (stdio + Streamable HTTP via langchain-mcp-adapters); status/error per server; tools as `<server>__<tool>`; auto-connect enabled servers at startup.
   - *Accept:* works against the local fixture MCP server (tests) and `@modelcontextprotocol/server-filesystem` (manual).
-- [ ] **M2-T2 MCP tools in the registry.** Register discovered tools (source `mcp`); write tools default to `requires_approval=True`; per‑tool enable/disable.
+- [x] **M2-T2 MCP tools in the registry.** **Done**: MCP tools registered with source `mcp`; tools with `destructiveHint` default to requires-approval; flags persist.
   - *Accept:* an agent calls an MCP tool and the call appears in the trace.
-- [ ] **M2-T3 Registry client.** Search the official MCP Registry API; map entries to a draft config.
+- [x] **M2-T3 Registry client.** **Done** (`core/mcp/registry_client.py`): official registry search, latest version per server, npm→npx / PyPI→uvx / OCI→docker / remote URL drafts with env-var hints. Verified against the live registry.
   - *Accept:* search returns results; "Add" pre‑fills the form; network failure shows a friendly message.
-- [ ] **M2-T4 Settings page: MCP tab** (tab exists, layout only). Browse registry / manual add / import `mcp.json` or `claude_desktop_config.json`; show the exact command before connecting; connect, test, disconnect.
+- [x] **M2-T4 Settings page: MCP tab** **Done** as the **MCP servers** page: registry browser, quick-start presets, manual add/edit, JSON import, connect/disconnect, tool lists.
 - [x] **M2-T5 Settings page: LLM, Git tabs.** Done early in M1-T11 (key, providers, models, defaults, pricing, git identity, GitHub token).
 
 ### Skills
-- [ ] **M2-T6 SkillLoader + Skills page.** Scan `skills/*/SKILL.md`; inject the name+description list into the agent's system prompt; `load_skill(name)` and `read_skill_file(name, path)` tools.
+- [x] **M2-T6 SkillLoader + Skills page.** **Done** (`core/skills/loader.py`, Skills page): SKILL.md skills, name+description advertised in the prompt, `skill__load` / `skill__read_file`; one-shot stages get skills inline; 3 starter skills shipped.
   - *Accept:* an agent loads a skill only when relevant (visible in the trace).
 
 ### Repositories and languages
-- [ ] **M2-T7 Language profiles.** `core/workspace/languages.py`, `config/languages/*.yaml` (python, javascript, typescript; java, csharp, go, rust experimental), `scaffolds/{python,javascript,typescript}/`, skills `lang-python`, `lang-javascript`, `lang-typescript`; detection; toolchain checks.
-- [ ] **M2-T8 RepoManager.** Add local / create new (scaffold) / clone; branch + worktree per run under `workspaces/<repo>/<run-id>`; commit per step; diff; finish: merge / keep / discard (local only, ADR‑011).
+- [x] **M2-T7 Language profiles.** **Done in the rebuild** (`core/workspace/languages.py`): Python, JavaScript, TypeScript fully working (scaffold, conventions, tests via pytest / `node --test`, toolchain detection). *Differs:* profiles are Python code, not YAML; Java/C#/Go/Rust not added yet.
+- [x] **M2-T8 RepoManager.** *(Reworked by ADR-023: no git; builds write into the folder; change tracking in `core/workspace/changes.py`.)* **Done in the rebuild** (`core/workspace/projects.py`, `worktree.py`): create new repo with scaffold, add existing local repo (folder picker), branch + worktree per build, commit per round, diff, merge/keep/discard. *Not yet:* clone from URL.
   - *Accept:* integration tests on temp repos; the user's checkout is never modified; no worktree is left after discard.
-- [ ] **M2-T9 Sandboxed repo tools.** LangChain tools `list_files`, `read_file`, `write_file`, `apply_patch`, `search_code`, `delete_file`, bound to one worktree; reject `..`, absolute/drive/UNC paths, escaping symlinks/junctions, alternate data streams, and protected paths.
+- [x] **M2-T9 Sandboxed repo tools.** **Done in the rebuild** (`core/workspace/repo_tools.py`): `repo__list_files/read_file/write_file/delete_file` with path sandbox and per-stage read/write rules. *Not yet:* `apply_patch`, `search_code`.
   - *Accept:* the path‑escape suite in TESTING.md passes (security‑critical).
-- [ ] **M2-T10 Code runner + test parsers.** Profile commands in the worktree, timeout + process‑tree kill, scrubbed env; pytest / vitest / jest → `test_report.json`.
+- [x] **M2-T10 Code runner + test parsers.** **Done in the rebuild** (`core/workspace/runner.py`): JUnit-based parsing for pytest and node:test, timeout with process-tree kill, scrubbed env.
   - *Accept:* passing and failing fixture projects (Python, JS, TS) give correct reports.
-- [ ] **M2-T11 Repositories page + language pickers.** Page per PLAN §6.8; Settings → Languages tab (§6.9); repo + language pickers in the Playground.
+- [x] **M2-T11 Repositories page + language pickers.** **Done in the rebuild** as the **Projects** page (create/add with folder picker, files, builds) and language chips in the New project dialog; toolchains shown in Settings → System.
 
 ---
 
@@ -238,7 +238,7 @@ Remaining from the original M2–M4, still planned: MCP servers (M2‑T1…T4), 
 - [ ] **M4-T2 Approvals.** Approval nodes use `interrupt()`; `requires_approval` tools use `HumanInTheLoopMiddleware`; the UI shows Approve / Reject / Edit and resumes with `Command(resume=...)`.
 - [ ] **M4-T3 Clarifying questions.** The requirements agent returns `questions[]`; the graph interrupts, the UI collects answers, the run resumes.
 - [ ] **M4-T4 Dev team v2.** Fix loop (≤3), review loop (≤2), spec + final approval gates, `needs_human` status when limits are hit, cost cap.
-- [ ] **M4-T5 Finish actions (local only).** Merge locally (merge commit message includes spec, review summary, and test report), keep branch (remove worktree, keep branch), or discard. No push or PRs (ADR‑011).
+- [ ] ~~**M4-T5 Finish actions (local only).**~~ *Dropped by ADR-023: the app runs no git and writes directly into the project folder.* Merge locally (merge commit message includes spec, review summary, and test report), keep branch (remove worktree, keep branch), or discard. No push or PRs (ADR‑011).
   - *Accept:* merge lands on the base branch with the summary message; keep leaves the branch and no worktree; discard leaves neither.
 - [ ] **M4-T6 A2A server + client.** FastAPI sidecar: Agent Card at `/.well-known/agent.json` + task endpoints for agents marked `a2a_exposed`; an `a2a` tool type calling a remote URL. Bind 127.0.0.1 + shared secret.
 

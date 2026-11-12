@@ -83,3 +83,20 @@ export interface SpanNode {
 
 export interface FolderEntry { name: string; path: string; is_git: boolean }
 export interface FolderListing { path: string | null; parent: string | null; is_git: boolean; entries: FolderEntry[]; shortcuts: FolderEntry[] }
+
+export interface McpServerConfig {
+  name: string; transport: "stdio" | "http"; command: string | null; args: string[];
+  env: Record<string, string>; url: string | null; headers: Record<string, string>; enabled: boolean;
+}
+export interface McpToolInfo { name: string; original_name: string; description: string; read_only: boolean | null; destructive: boolean | null }
+export interface McpServerView {
+  name: string; transport: "stdio" | "http"; command: string | null; args: string[]; url: string | null;
+  env_keys: string[]; header_keys: string[]; enabled: boolean;
+  status: "disconnected" | "connecting" | "connected" | "error"; error: string | null; tools: McpToolInfo[]; connected_at: string | null;
+}
+export interface EnvVarSpec { name: string; description: string; required: boolean; secret: boolean; default: string | null }
+export interface RegistryEntry {
+  name: string; title: string; description: string; version: string; repository: string | null;
+  kind: string; draft: McpServerConfig; env_vars: EnvVarSpec[]; supported: boolean; note: string;
+}
+export interface Skill { name: string; description: string; body: string; files: string[]; path: string }

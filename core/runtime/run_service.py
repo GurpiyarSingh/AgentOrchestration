@@ -27,7 +27,8 @@ from core.models import RunRecord, new_id
 from core.pricing import PriceTable
 from core.runtime.agent_def import AgentDef
 from core.runtime.agent_factory import build_agent
-from core.tools.registry import ToolRegistry
+from core.skills.loader import SkillStore, apply_skills
+from core.tools.registry import ToolEntry, ToolRegistry
 from core.tracing.callbacks import TraceCallbackHandler
 from core.tracing.redact import Redactor
 from core.tracing.tracer import Tracer
@@ -156,10 +157,12 @@ class RunService:
         prices: PriceTable,
         *,
         model_factory: ModelFactory | None = None,
+        skills: SkillStore | None = None,
     ) -> None:
         self.db = db
         self.settings = settings
         self.registry = registry
+        self.skills = skills
         self.prices = prices
         self._model_factory = model_factory or self._default_model_factory
         self._handles: dict[str, RunHandle] = {}
@@ -196,6 +199,8 @@ class RunService:
             raise RunError(f"Agent '{agent.name}' has no model and DEFAULT_MODEL is not set.")
         try:
             tools = self.registry.resolve(agent.tools)
+            agent, skill_tools = apply_skills(agent, self.skills)
+            tools = tools + [ToolEntry(t, "python") for t in skill_tools]
             model = self._model_factory(model_ref, agent)
         except Exception as exc:
             raise RunError(friendly_error(exc)) from exc

@@ -1,6 +1,6 @@
 // Typed client for the FastAPI backend (all routes under /api).
 import type {
-  AgentDef, BuildSnapshot, BuildSummary, ChatTurn, FileEntry, FolderListing, KeyCheck, LanguageInfo, ModelPrice, Project,
+  AgentDef, BuildSnapshot, BuildSummary, ChatTurn, FileEntry, FolderListing, KeyCheck, McpServerConfig, McpServerView, RegistryEntry, Skill, LanguageInfo, ModelPrice, Project,
   RunSnapshot, RunSummary, SettingsView, SpanNode, ToolInfo, ToolInvocation, UsageReport, UserPrefs,
 } from "./types";
 
@@ -62,9 +62,20 @@ export const api = {
   startBuild: (b: { project_id: string; requirement: string; model?: string | null; max_fix_attempts?: number; max_review_rounds?: number }) =>
     post<BuildSnapshot>("/builds", b),
   cancelBuild: (id: string) => post<{ cancelled: boolean }>(`/builds/${id}/cancel`),
-  finishBuild: (id: string, action: "merge" | "keep" | "discard") => post<BuildSnapshot>(`/builds/${id}/finish`, { action }),
   buildFile: (id: string, path: string) => getText(`/builds/${id}/file${q({ path })}`),
   buildDiff: (id: string) => getText(`/builds/${id}/diff`),
+
+  mcpServers: () => get<McpServerView[]>("/mcp/servers"),
+  saveMcpServer: (cfg: McpServerConfig, connect = true) => put<McpServerView>(`/mcp/servers/${encodeURIComponent(cfg.name)}${q({ connect: String(connect) })}`, cfg),
+  deleteMcpServer: (name: string) => del(`/mcp/servers/${encodeURIComponent(name)}`),
+  connectMcp: (name: string) => post<McpServerView>(`/mcp/servers/${encodeURIComponent(name)}/connect`),
+  disconnectMcp: (name: string) => post<McpServerView>(`/mcp/servers/${encodeURIComponent(name)}/disconnect`),
+  importMcp: (json_text: string) => post<McpServerView[]>("/mcp/import", { json_text, connect: true }),
+  mcpRegistry: (query: string) => get<RegistryEntry[]>(`/mcp/registry${q({ q: query, limit: "30" })}`),
+
+  skills: () => get<Skill[]>("/skills"),
+  saveSkill: (sk: { name: string; description: string; body: string }) => put<Skill>(`/skills/${sk.name}`, sk),
+  deleteSkill: (name: string) => del(`/skills/${name}`),
 
   agents: () => get<AgentDef[]>("/agents"),
   saveAgent: (a: AgentDef) => put<AgentDef>(`/agents/${a.name}`, a),

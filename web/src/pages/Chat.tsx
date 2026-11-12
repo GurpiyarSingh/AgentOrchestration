@@ -40,7 +40,7 @@ export default function ChatPage() {
     try {
       if (mode === "model") {
         const r = await api.chat(history, model || null);
-        setMsgs((m) => [...m, { role: "assistant", content: r.text, runId: r.run_id, meta: `${r.model ?? model} · ${fmt.int(r.input_tokens)} in / ${fmt.int(r.output_tokens)} out` }]);
+        setMsgs((m) => [...m, { role: "assistant", content: r.text, runId: r.run_id, meta: `${(r.model || model || settings?.default_model || "model").replace("openai:", "")} · ${fmt.int(r.input_tokens)} in / ${fmt.int(r.output_tokens)} out` }]);
       } else {
         let snap = await api.startRun(agent, history, model || null);
         setLive(snap);
